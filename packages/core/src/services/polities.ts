@@ -10,8 +10,12 @@ import { getNodeRelations } from "./relationships";
 import { normalizeText } from "./text";
 
 type ListRow = {
-  id: string; slug: string; name: string; polity_type: string;
-  start_edtf: string | null; end_edtf: string | null;
+  id: string;
+  slug: string;
+  name: string;
+  polity_type: string;
+  start_edtf: string | null;
+  end_edtf: string | null;
 };
 
 const listSelect = sql`
@@ -63,7 +67,12 @@ export async function getPolity(slugOrId: string) {
   const id = await resolveId(slugOrId);
   const [base] = await db.execute<ListRow>(sql`${listSelect} and n.id = ${id}`);
   const [meta] = await db.select({ summary: polity.summary }).from(polity).where(eq(polity.id, id));
-  const names = await db.execute<{ name: string; kind: string; language: string | null; is_primary: boolean }>(
+  const names = await db.execute<{
+    name: string;
+    kind: string;
+    language: string | null;
+    is_primary: boolean;
+  }>(
     sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
   );
   const attributes = await db.execute<{ type: string; label: string | null; value: string }>(
@@ -75,8 +84,15 @@ export async function getPolity(slugOrId: string) {
   const [bodyRow] = await db.select({ body: node.body }).from(node).where(eq(node.id, id));
   const relations = await getNodeRelations(id);
   const tenures = await db.execute<{
-    id: string; person_id: string; person_slug: string; person_name: string; office_type: string;
-    succession_mode: string | null; start_edtf: string | null; end_edtf: string | null; seq: number | null;
+    id: string;
+    person_id: string;
+    person_slug: string;
+    person_name: string;
+    office_type: string;
+    succession_mode: string | null;
+    start_edtf: string | null;
+    end_edtf: string | null;
+    seq: number | null;
     eras: { name: string }[] | null;
   }>(
     sql`select t.id, t.person_id, pn.slug as person_slug, pm.name as person_name, t.office_type,
@@ -97,7 +113,12 @@ export async function getPolity(slugOrId: string) {
     body: bodyRow?.body ?? null,
     attributes: attributes.map((a) => ({ type: a.type, label: a.label ?? a.type, value: a.value })),
     relations,
-    names: names.map((n) => ({ name: n.name, kind: n.kind, language: n.language, isPrimary: n.is_primary })),
+    names: names.map((n) => ({
+      name: n.name,
+      kind: n.kind,
+      language: n.language,
+      isPrimary: n.is_primary,
+    })),
     tenures: tenures.map((t) => ({
       id: t.id,
       person: { id: t.person_id, slug: t.person_slug, name: t.person_name },
@@ -114,9 +135,15 @@ export async function getPolity(slugOrId: string) {
 export async function getPolityForEdit(slugOrId: string) {
   const d = await getPolity(slugOrId);
   return {
-    id: d.id, slug: d.slug, names: d.names, polityType: d.polityType,
-    summary: d.summary, body: d.body, attributes: d.attributes.map((a) => ({ type: a.type, value: a.value })),
-    started: d.started, ended: d.ended,
+    id: d.id,
+    slug: d.slug,
+    names: d.names,
+    polityType: d.polityType,
+    summary: d.summary,
+    body: d.body,
+    attributes: d.attributes.map((a) => ({ type: a.type, value: a.value })),
+    started: d.started,
+    ended: d.ended,
   };
 }
 

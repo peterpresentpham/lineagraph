@@ -10,11 +10,18 @@ type AttributeValue = { type: string; value: string };
 export async function setAttributes(tx: Tx, nodeId: string, attributes: AttributeValue[]) {
   await tx.delete(attribute).where(eq(attribute.nodeId, nodeId));
   if (attributes.length) {
-    await tx.insert(attribute).values(attributes.map((a, i) => ({ nodeId, type: a.type, value: a.value, sortOrder: i })));
+    await tx
+      .insert(attribute)
+      .values(attributes.map((a, i) => ({ nodeId, type: a.type, value: a.value, sortOrder: i })));
   }
 }
 
-export async function createNode(tx: Tx, kind: "person" | "polity", names: NameInput[], body: string | null = null) {
+export async function createNode(
+  tx: Tx,
+  kind: "person" | "polity",
+  names: NameInput[],
+  body: string | null = null,
+) {
   const primary = names.find((n) => n.isPrimary)!;
   const base = slugify(primary.name);
   let slug = base;
@@ -44,7 +51,12 @@ export async function insertNames(tx: Tx, nodeId: string, names: NameInput[]) {
   );
 }
 
-export async function replaceNames(tx: Tx, nodeId: string, names: NameInput[], body?: string | null) {
+export async function replaceNames(
+  tx: Tx,
+  nodeId: string,
+  names: NameInput[],
+  body?: string | null,
+) {
   await tx.delete(name).where(eq(name.nodeId, nodeId));
   await insertNames(tx, nodeId, names);
   await tx
@@ -54,5 +66,8 @@ export async function replaceNames(tx: Tx, nodeId: string, names: NameInput[], b
 }
 
 export async function softDeleteNode(tx: Tx, nodeId: string) {
-  await tx.update(node).set({ deletedAt: sql`now()` }).where(eq(node.id, nodeId));
+  await tx
+    .update(node)
+    .set({ deletedAt: sql`now()` })
+    .where(eq(node.id, nodeId));
 }

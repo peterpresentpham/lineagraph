@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { Toaster as Sonner, toast, type ToasterProps } from "sonner"
+import { Toaster as Sonner, toast, type ToasterProps } from "sonner";
 
 // Toast host: render once near the app root. Colors follow the theme variables, so light and
 // dark mode need no extra wiring. Call `toast.success(...)` / `toast.error(...)`.
@@ -19,7 +19,7 @@ function Toaster(props: ToasterProps) {
       }
       {...props}
     />
-  )
+  );
 }
 
-export { Toaster, toast }
+export { Toaster, toast };

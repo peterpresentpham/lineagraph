@@ -13,7 +13,13 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const person = await apiGet<PersonDetail>(`/persons/${(await params).slug}`);
-  return { title: person.name, description: person.summary ?? undefined };
+  const description = person.summary ?? `${person.name} trong phả hệ lịch sử Việt Nam.`;
+  return {
+    title: person.name,
+    description,
+    openGraph: { title: person.name, description, type: "profile" },
+    twitter: { title: person.name, description },
+  };
 }
 
 export default async function PersonPage({ params }: Props) {
@@ -31,18 +37,26 @@ export default async function PersonPage({ params }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">{person.name}</h1>
-          <p className="mt-1 text-muted-foreground">{lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}</p>
+          <p className="text-muted-foreground mt-1">
+            {lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}
+          </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             <Badge variant="neutral">{sexLabels[person.sex]}</Badge>
-            <Badge variant={person.historicity === "historical" ? "success" : "warning"}>{historicityLabels[person.historicity]}</Badge>
+            <Badge variant={person.historicity === "historical" ? "success" : "warning"}>
+              {historicityLabels[person.historicity]}
+            </Badge>
           </div>
         </div>
         <div className="flex gap-2">
           <Link href={`/relations?a=${person.slug}`}>
-            <Button variant="secondary"><GitCompare /> Tìm quan hệ</Button>
+            <Button variant="secondary">
+              <GitCompare /> Tìm quan hệ
+            </Button>
           </Link>
           <Link href={`/graph?node=${person.slug}`}>
-            <Button variant="secondary"><Network /> Sơ đồ quan hệ</Button>
+            <Button variant="secondary">
+              <Network /> Sơ đồ quan hệ
+            </Button>
           </Link>
         </div>
       </div>
@@ -51,8 +65,9 @@ export default async function PersonPage({ params }: Props) {
         <Section title="Các tên khác">
           <ul className="flex flex-wrap gap-2">
             {otherNames.map((n, i) => (
-              <li key={i} className="rounded-md border bg-card px-3 py-1 text-sm">
-                {n.name} <span className="text-muted-foreground">· {nameKinds[n.kind] ?? n.kind}</span>
+              <li key={i} className="bg-card rounded-md border px-3 py-1 text-sm">
+                {n.name}{" "}
+                <span className="text-muted-foreground">· {nameKinds[n.kind] ?? n.kind}</span>
               </li>
             ))}
           </ul>
@@ -81,7 +96,10 @@ export default async function PersonPage({ params }: Props) {
         <Section title="Chức vụ">
           <div className="flex flex-col gap-2">
             {person.tenures.map((t) => (
-              <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border bg-card p-4">
+              <div
+                key={t.id}
+                className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border p-4"
+              >
                 <div>
                   <span className="font-semibold">{offices[t.officeType] ?? t.officeType}</span>
                   {t.polity?.slug && (
@@ -91,7 +109,7 @@ export default async function PersonPage({ params }: Props) {
                     </>
                   )}
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-muted-foreground text-sm">
                   {t.start || t.end ? `${t.start?.label ?? "?"} – ${t.end?.label ?? "?"}` : ""}
                 </div>
               </div>
@@ -101,13 +119,19 @@ export default async function PersonPage({ params }: Props) {
       )}
 
       <Section title="Quan hệ">
-        {person.relations.length === 0 ? <Empty>Chưa có quan hệ nào được ghi.</Empty> : <RelationList relations={person.relations} />}
+        {person.relations.length === 0 ? (
+          <Empty>Chưa có quan hệ nào được ghi.</Empty>
+        ) : (
+          <RelationList relations={person.relations} />
+        )}
       </Section>
 
       {person.siblings.length > 0 && (
         <Section title="Anh chị em">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {person.siblings.map((p) => <PersonCard key={p.id} person={p} />)}
+            {person.siblings.map((p) => (
+              <PersonCard key={p.id} person={p} />
+            ))}
           </div>
         </Section>
       )}
@@ -116,13 +140,25 @@ export default async function PersonPage({ params }: Props) {
         <Section title="Nguồn tư liệu">
           <ul className="flex flex-col gap-2">
             {citations.map((c) => (
-              <li key={c.id} className="rounded-[var(--radius)] border bg-card p-4 text-sm">
+              <li key={c.id} className="bg-card rounded-[var(--radius)] border p-4 text-sm">
                 <div className="font-medium">
-                  {c.source.url ? <a href={c.source.url} target="_blank" rel="noreferrer">{c.source.title}</a> : c.source.title}
-                  {c.source.author && <span className="font-normal text-muted-foreground"> — {c.source.author}</span>}
+                  {c.source.url ? (
+                    <a href={c.source.url} target="_blank" rel="noreferrer">
+                      {c.source.title}
+                    </a>
+                  ) : (
+                    c.source.title
+                  )}
+                  {c.source.author && (
+                    <span className="text-muted-foreground font-normal"> — {c.source.author}</span>
+                  )}
                 </div>
                 {c.locator && <div className="text-muted-foreground">{c.locator}</div>}
-                {c.quote && <blockquote className="mt-2 border-l-2 pl-3 text-muted-foreground">{c.quote}</blockquote>}
+                {c.quote && (
+                  <blockquote className="text-muted-foreground mt-2 border-l-2 pl-3">
+                    {c.quote}
+                  </blockquote>
+                )}
               </li>
             ))}
           </ul>

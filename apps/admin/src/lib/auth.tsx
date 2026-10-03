@@ -10,7 +10,9 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+type Props = { children: ReactNode };
+
+export function AuthProvider({ children }: Props) {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !!tokenStore.get());
 
@@ -38,7 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setEmail(result.email);
   }, []);
 
-  return <AuthContext.Provider value={{ email, loading, login, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ email, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

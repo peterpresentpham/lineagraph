@@ -8,7 +8,8 @@ const links: EgoLink[] = [
   { a: "dad", b: "grandpa", rank: 0 },
   { a: "friend", b: "stranger", rank: 2 },
 ];
-const fetchLinks = async (ids: string[]) => links.filter((l) => ids.includes(l.a) || ids.includes(l.b));
+const fetchLinks = async (ids: string[]) =>
+  links.filter((l) => ids.includes(l.a) || ids.includes(l.b));
 
 describe("egoBfs", () => {
   it("walks outward layer by layer up to the depth", async () => {
@@ -26,13 +27,23 @@ describe("egoBfs", () => {
   });
 
   it("never returns known nodes and does not walk through them", async () => {
-    const r = await egoBfs({ rootIds: ["root"], known: new Set(["dad"]), depth: 2, limit: 99, fetchLinks });
+    const r = await egoBfs({
+      rootIds: ["root"],
+      known: new Set(["dad"]),
+      depth: 2,
+      limit: 99,
+      fetchLinks,
+    });
     expect(r.added).not.toContain("dad");
     expect(r.added).not.toContain("grandpa");
   });
 
   it("copes with cycles", async () => {
-    const cyclic: EgoLink[] = [{ a: "x", b: "y", rank: 0 }, { a: "y", b: "z", rank: 0 }, { a: "z", b: "x", rank: 0 }];
+    const cyclic: EgoLink[] = [
+      { a: "x", b: "y", rank: 0 },
+      { a: "y", b: "z", rank: 0 },
+      { a: "z", b: "x", rank: 0 },
+    ];
     const r = await egoBfs({ rootIds: ["x"], depth: 5, limit: 99, fetchLinks: async () => cyclic });
     expect(r.added.sort()).toEqual(["y", "z"]);
   });

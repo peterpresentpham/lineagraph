@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildAdjacency, findPaths, type RelationEdge, type RelationTypeInfo, type TenureEdge } from "./pathfinder";
+import {
+  buildAdjacency,
+  findPaths,
+  type RelationEdge,
+  type RelationTypeInfo,
+  type TenureEdge,
+} from "./pathfinder";
 
 const types = new Map<string, RelationTypeInfo>([
   ["parent_of", { code: "parent_of", inverse: "child_of", symmetric: false }],
@@ -8,8 +14,21 @@ const types = new Map<string, RelationTypeInfo>([
   ["teacher_of", { code: "teacher_of", inverse: "student_of", symmetric: false }],
 ]);
 
-const rel = (id: string, type: string, fromId: string, toId: string, extra: Partial<RelationEdge> = {}): RelationEdge => ({
-  id, type, fromId, toId, variant: null, label: null, disputed: false, ...extra,
+const rel = (
+  id: string,
+  type: string,
+  fromId: string,
+  toId: string,
+  extra: Partial<RelationEdge> = {},
+): RelationEdge => ({
+  id,
+  type,
+  fromId,
+  toId,
+  variant: null,
+  label: null,
+  disputed: false,
+  ...extra,
 });
 
 describe("findPaths", () => {
@@ -58,8 +77,14 @@ describe("findPaths", () => {
   });
 
   it("skips disputed edges unless asked", () => {
-    const withDisputed = buildAdjacency([...relations, rel("e5", "parent_of", "loi", "ngoc-dao", { disputed: true })], [], types);
+    const withDisputed = buildAdjacency(
+      [...relations, rel("e5", "parent_of", "loi", "ngoc-dao", { disputed: true })],
+      [],
+      types,
+    );
     expect(findPaths(withDisputed, "loi", "ngoc-dao")[0]!.steps).toHaveLength(2);
-    expect(findPaths(withDisputed, "loi", "ngoc-dao", { includeDisputed: true })[0]!.steps).toHaveLength(1);
+    expect(
+      findPaths(withDisputed, "loi", "ngoc-dao", { includeDisputed: true })[0]!.steps,
+    ).toHaveLength(1);
   });
 });

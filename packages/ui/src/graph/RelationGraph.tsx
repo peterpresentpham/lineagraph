@@ -1,8 +1,23 @@
 import "@xyflow/react/dist/style.css";
 import { useMemo, useState } from "react";
 import { Background, Controls, MiniMap, ReactFlow, type Node } from "@xyflow/react";
-import { GraphUi, TypeFilter, buildEdges, layout, nodeTypes, useColorMode, type EntityNodeData } from "./shared";
+import {
+  GraphUi,
+  TypeFilter,
+  buildEdges,
+  layout,
+  nodeTypes,
+  useColorMode,
+  type EntityNodeData,
+} from "./shared";
 import type { GraphView, RenderNodeLink } from "./types";
+
+type Props = {
+  data: GraphView;
+  height?: number;
+  renderLink?: RenderNodeLink;
+  emptyText?: string;
+};
 
 // A fixed graph (for example the people of one dynasty), laid out once.
 export function RelationGraph({
@@ -10,12 +25,7 @@ export function RelationGraph({
   height = 640,
   renderLink,
   emptyText = "Chưa có đủ dữ liệu để vẽ cây quan hệ.",
-}: {
-  data: GraphView;
-  height?: number;
-  renderLink?: RenderNodeLink;
-  emptyText?: string;
-}) {
+}: Props) {
   const colorMode = useColorMode();
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
@@ -31,7 +41,11 @@ export function RelationGraph({
   }, [data, hiddenTypes]);
 
   if (data.nodes.length === 0) {
-    return <p className="rounded-md border border-dashed p-8 text-center text-muted-foreground">{emptyText}</p>;
+    return (
+      <p className="text-muted-foreground rounded-md border border-dashed p-8 text-center">
+        {emptyText}
+      </p>
+    );
   }
   const toggle = (type: string) =>
     setHiddenTypes((prev) => {
@@ -43,8 +57,10 @@ export function RelationGraph({
 
   return (
     <GraphUi.Provider value={{ renderLink: renderLink ?? defaultRender, connectable: false }}>
-      <div className="mb-3"><TypeFilter edges={data.edges} hidden={hiddenTypes} onToggle={toggle} /></div>
-      <div className="overflow-hidden rounded-md border bg-card" style={{ height }}>
+      <div className="mb-3">
+        <TypeFilter edges={data.edges} hidden={hiddenTypes} onToggle={toggle} />
+      </div>
+      <div className="bg-card overflow-hidden rounded-md border" style={{ height }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -62,13 +78,16 @@ export function RelationGraph({
           {data.nodes.length > 12 && <MiniMap pannable zoomable className="!bg-card" />}
         </ReactFlow>
       </div>
-      <p className="mt-2 text-xs text-muted-foreground">
-        Kéo để di chuyển, cuộn để phóng to. Bấm vào một ô để xem trang của người đó. Nét liền là quan hệ huyết thống, nét đứt là quan hệ khác.
+      <p className="text-muted-foreground mt-2 text-xs">
+        Kéo để di chuyển, cuộn để phóng to. Bấm vào một ô để xem trang của người đó. Nét liền là
+        quan hệ huyết thống, nét đứt là quan hệ khác.
       </p>
     </GraphUi.Provider>
   );
 }
 
 const defaultRender: RenderNodeLink = (node, { className, children }) => (
-  <a href={`/${node.kind}/${node.slug}`} className={className}>{children}</a>
+  <a href={`/${node.kind}/${node.slug}`} className={className}>
+    {children}
+  </a>
 );

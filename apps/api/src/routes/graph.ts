@@ -1,5 +1,14 @@
 import { Router } from "express";
-import { expandEgoGraph, getEgoGraph, getLineage, getPerson, getPolity, getPolityGraph, listPersons, listPolities } from "@lineagraph/core";
+import {
+  expandEgoGraph,
+  getEgoGraph,
+  getLineage,
+  getPerson,
+  getPolity,
+  getPolityGraph,
+  listPersons,
+  listPolities,
+} from "@lineagraph/core";
 import { z } from "zod";
 import { handle, param } from "../http.js";
 
@@ -19,7 +28,10 @@ graphRouter.get(
   }),
 );
 
-graphRouter.get("/persons/:slug", handle(async (req, res) => res.json(await getPerson(param(req, "slug")))));
+graphRouter.get(
+  "/persons/:slug",
+  handle(async (req, res) => res.json(await getPerson(param(req, "slug")))),
+);
 
 for (const direction of ["ancestors", "descendants"] as const) {
   graphRouter.get(
@@ -39,7 +51,10 @@ graphRouter.get(
   }),
 );
 
-graphRouter.get("/polities/:slug", handle(async (req, res) => res.json(await getPolity(param(req, "slug")))));
+graphRouter.get(
+  "/polities/:slug",
+  handle(async (req, res) => res.json(await getPolity(param(req, "slug")))),
+);
 
 const csv = (v: unknown) => (typeof v === "string" && v ? v.split(",").filter(Boolean) : undefined);
 

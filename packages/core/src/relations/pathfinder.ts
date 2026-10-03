@@ -1,9 +1,3 @@
-// Finds the chains of relationships that connect two nodes. Pure functions: no database.
-//
-// The graph is built from stored relations (one row per fact, in the primary direction of
-// their type) plus tenures (person held an office in a polity). Every edge can be walked in
-// both directions; the reverse of a relation uses the inverse type (parent_of -> child_of).
-
 export type RelationTypeInfo = { code: string; inverse: string | null; symmetric: boolean };
 
 export type RelationEdge = {
@@ -50,17 +44,33 @@ export function buildAdjacency(
   types: Map<string, RelationTypeInfo>,
 ): Map<string, Step[]> {
   const adjacency = new Map<string, Step[]>();
-  const add = (step: Step) => adjacency.set(step.fromId, [...(adjacency.get(step.fromId) ?? []), step]);
+  const add = (step: Step) =>
+    adjacency.set(step.fromId, [...(adjacency.get(step.fromId) ?? []), step]);
 
   for (const r of relations) {
     const info = types.get(r.type);
-    const base = { edgeId: r.id, variant: r.variant, label: r.label, disputed: r.disputed, source: "relation" as const, cost: 1 };
+    const base = {
+      edgeId: r.id,
+      variant: r.variant,
+      label: r.label,
+      disputed: r.disputed,
+      source: "relation" as const,
+      cost: 1,
+    };
     add({ ...base, fromId: r.fromId, toId: r.toId, type: r.type, reversed: false });
     const reverseType = info?.symmetric ? r.type : (info?.inverse ?? r.type);
     add({ ...base, fromId: r.toId, toId: r.fromId, type: reverseType, reversed: !info?.symmetric });
   }
   for (const t of tenures) {
-    const base = { edgeId: t.id, variant: t.officeType, label: null, disputed: false, source: "tenure" as const, cost: TENURE_COST, type: TENURE_TYPE };
+    const base = {
+      edgeId: t.id,
+      variant: t.officeType,
+      label: null,
+      disputed: false,
+      source: "tenure" as const,
+      cost: TENURE_COST,
+      type: TENURE_TYPE,
+    };
     add({ ...base, fromId: t.personId, toId: t.polityId, reversed: false });
     add({ ...base, fromId: t.polityId, toId: t.personId, reversed: true });
   }

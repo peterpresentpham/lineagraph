@@ -1,10 +1,26 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
-import { Button, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, toast } from "@lineagraph/ui";
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  toast,
+} from "@lineagraph/ui";
 import { ConfirmDelete } from "../components/ConfirmDelete";
-import { Field, NativeSelect } from "../components/Field";
+import { Field } from "../components/Field";
 import { PageHeader } from "../components/PageHeader";
+import { TableSkeleton } from "../components/TableSkeleton";
 import { api } from "../lib/api";
 import { errorMessage } from "../lib/hooks";
 import type { RegistryItem } from "../lib/types";
@@ -18,7 +34,13 @@ const tableLabels: Record<string, string> = {
   relation_type: "Loại quan hệ (xem trang Loại quan hệ)",
   calendar: "Lịch",
 };
-const editable = new Set(["name_kind", "polity_type", "office_type", "succession_mode", "attribute_type"]);
+const editable = new Set([
+  "name_kind",
+  "polity_type",
+  "office_type",
+  "succession_mode",
+  "attribute_type",
+]);
 
 export function Registries() {
   const queryClient = useQueryClient();
@@ -26,7 +48,7 @@ export function Registries() {
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["registry", table],
     queryFn: () => api.get<RegistryItem[]>(`/registries/${table}`),
   });
@@ -34,7 +56,12 @@ export function Registries() {
 
   const add = useMutation({
     mutationFn: () => api.post(`/registries/${table}`, { code, label }),
-    onSuccess: () => { toast.success("Đã thêm"); setCode(""); setLabel(""); refresh(); },
+    onSuccess: () => {
+      toast.success("Đã thêm");
+      setCode("");
+      setLabel("");
+      refresh();
+    },
     onError: (e) => toast.error(errorMessage(e)),
   });
 
@@ -45,27 +72,51 @@ export function Registries() {
         description="Các giá trị dùng trong danh sách chọn (chức vụ, loại tên...). Thêm giá trị mới ở đây, không cần sửa code."
       />
       <Field label="Danh mục" className="mb-4 max-w-xs">
-        <NativeSelect value={table} onChange={(e) => setTable(e.target.value)}>
-          {Object.entries(tableLabels).map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-        </NativeSelect>
+        <Select value={table} onValueChange={setTable}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(tableLabels).map(([value, text]) => (
+              <SelectItem key={value} value={value}>
+                {text}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
 
       {editable.has(table) && (
         <form
           className="mb-4 flex flex-wrap items-end gap-3"
-          onSubmit={(e) => { e.preventDefault(); add.mutate(); }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            add.mutate();
+          }}
         >
           <Field label="Mã" hint="Chữ thường, số, gạch dưới. Không đổi được sau khi tạo.">
-            <Input required placeholder="vi_du_ma" value={code} onChange={(e) => setCode(e.target.value)} />
+            <Input
+              required
+              placeholder="vi_du_ma"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
           </Field>
           <Field label="Nhãn hiển thị">
-            <Input required placeholder="Tên tiếng Việt" value={label} onChange={(e) => setLabel(e.target.value)} />
+            <Input
+              required
+              placeholder="Tên tiếng Việt"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
           </Field>
-          <Button type="submit" disabled={add.isPending} className="mb-6">Thêm</Button>
+          <Button type="submit" disabled={add.isPending} className="mb-6">
+            Thêm
+          </Button>
         </form>
       )}
 
-      <div className="max-w-2xl rounded-[var(--radius)] border bg-card">
+      <div className="bg-card max-w-2xl rounded-[var(--radius)] border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -75,6 +126,7 @@ export function Registries() {
             </TableRow>
           </TableHeader>
           <TableBody>
+            {isLoading && <TableSkeleton cols={3} />}
             {data?.map((item) => (
               <TableRow key={item.code}>
                 <TableCell className="font-mono text-xs">{item.code}</TableCell>
@@ -84,8 +136,16 @@ export function Registries() {
                     <ConfirmDelete
                       title={`Xoá "${item.label}"?`}
                       description="Không xoá được nếu giá trị này đang được dùng."
-                      onConfirm={async () => { await api.del(`/registries/${table}/${item.code}`); toast.success("Đã xoá"); refresh(); }}
-                      trigger={(openDialog) => <Button variant="ghost" size="icon" onClick={openDialog}><Trash2 /></Button>}
+                      onConfirm={async () => {
+                        await api.del(`/registries/${table}/${item.code}`);
+                        toast.success("Đã xoá");
+                        refresh();
+                      }}
+                      trigger={(openDialog) => (
+                        <Button variant="ghost" size="icon" onClick={openDialog}>
+                          <Trash2 />
+                        </Button>
+                      )}
                     />
                   )}
                 </TableCell>

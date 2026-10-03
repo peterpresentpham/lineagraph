@@ -1,3 +1,5 @@
+import type { DateValue } from "./types";
+
 export const sexLabels: Record<string, string> = { male: "Nam", female: "Nữ", unknown: "Không rõ" };
 export const historicityLabels: Record<string, string> = {
   historical: "Có thật",
@@ -16,9 +18,6 @@ export const variantLabels: Record<string, string> = {
   concubine: "thứ phi / hầu",
   partnership: "quan hệ khác",
 };
-
-
-import type { DateValue } from "./types";
 
 export const lifeSpan = (birth: DateValue | null, death: DateValue | null) =>
   birth || death ? `${birth?.label ?? "?"} – ${death?.label ?? "?"}` : "";

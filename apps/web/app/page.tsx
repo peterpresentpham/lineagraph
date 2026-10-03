@@ -15,20 +15,22 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="border-l-4 border-l-primary bg-card px-8 py-10 shadow-[0_1px_0_var(--border)]">
-        <p className="text-xs font-semibold tracking-[0.2em] text-gold uppercase">Sử Phả</p>
-        <h1 className="mt-2 max-w-2xl text-4xl leading-tight">Lịch sử Việt Nam qua từng dòng phả hệ</h1>
-        <p className="mt-3 max-w-xl text-muted-foreground">
+      <div className="border-l-primary bg-card border-l-4 px-8 py-10 shadow-[0_1px_0_var(--border)]">
+        <p className="text-gold text-xs font-semibold uppercase tracking-[0.2em]">Sử Phả</p>
+        <h1 className="mt-2 max-w-2xl text-4xl leading-tight">
+          Lịch sử Việt Nam qua từng dòng phả hệ
+        </h1>
+        <p className="text-muted-foreground mt-3 max-w-xl">
           Tra cứu nhân vật, triều đại và mối quan hệ giữa họ: ai là cha của ai, ai kế vị ai.
         </p>
         <form action="/search" className="mt-6 flex max-w-md items-center">
           <label className="relative w-full">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" />
             <input
               name="q"
               type="search"
               placeholder="Thử gõ: Lê Lợi, Nhà Trần..."
-              className="h-12 w-full rounded-sm border border-input bg-background pr-4 pl-10 outline-none focus:border-primary"
+              className="border-input bg-background focus:border-primary h-12 w-full rounded-sm border pl-10 pr-4 outline-none"
             />
           </label>
         </form>
@@ -43,19 +45,25 @@ export default async function HomePage() {
               <Link
                 key={p.id}
                 href={`/polity/${p.slug}`}
-                className="block rounded-[var(--radius)] border bg-card p-4 no-underline transition-shadow hover:no-underline hover:shadow-md"
+                className="bg-card block rounded-[var(--radius)] border p-4 no-underline transition-shadow hover:no-underline hover:shadow-md"
               >
-                <div className="font-semibold text-foreground">{p.name}</div>
-                <div className="mt-0.5 text-sm text-muted-foreground">
-                  {p.started || p.ended ? `${p.started?.label ?? "?"} – ${p.ended?.label ?? "?"}` : "Chưa rõ thời gian"}
+                <div className="text-foreground font-semibold">{p.name}</div>
+                <div className="text-muted-foreground mt-0.5 text-sm">
+                  {p.started || p.ended
+                    ? `${p.started?.label ?? "?"} – ${p.ended?.label ?? "?"}`
+                    : "Chưa rõ thời gian"}
                 </div>
-                <Badge className="mt-2" variant="neutral">{typeLabels[p.polityType] ?? p.polityType}</Badge>
+                <Badge className="mt-2" variant="neutral">
+                  {typeLabels[p.polityType] ?? p.polityType}
+                </Badge>
               </Link>
             ))}
           </div>
         )}
         {polities.length > 6 && (
-          <Link href="/polities" className="mt-3 inline-block text-sm font-medium">Xem tất cả chính thể →</Link>
+          <Link href="/polities" className="mt-3 inline-block text-sm font-medium">
+            Xem tất cả chính thể →
+          </Link>
         )}
       </Section>
 
@@ -64,11 +72,15 @@ export default async function HomePage() {
           <Empty>Chưa có dữ liệu.</Empty>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {persons.items.map((p) => <PersonCard key={p.id} person={p} />)}
+            {persons.items.map((p) => (
+              <PersonCard key={p.id} person={p} />
+            ))}
           </div>
         )}
         {persons.total > 8 && (
-          <Link href="/persons" className="mt-3 inline-block text-sm font-medium">Xem tất cả {persons.total} nhân vật →</Link>
+          <Link href="/persons" className="mt-3 inline-block text-sm font-medium">
+            Xem tất cả {persons.total} nhân vật →
+          </Link>
         )}
       </Section>
     </>

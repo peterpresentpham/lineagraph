@@ -18,9 +18,14 @@ type GraphUiContext = {
   onRecenter?: (node: GraphNode) => void;
 };
 const defaultLink: RenderNodeLink = (node, { className, children }) => (
-  <a href={`/${node.kind}/${node.slug}`} className={className}>{children}</a>
+  <a href={`/${node.kind}/${node.slug}`} className={className}>
+    {children}
+  </a>
 );
-export const GraphUi = createContext<GraphUiContext>({ renderLink: defaultLink, connectable: false });
+export const GraphUi = createContext<GraphUiContext>({
+  renderLink: defaultLink,
+  connectable: false,
+});
 
 // Follows the site theme (data-theme attribute, or the OS setting) so React Flow's own
 // controls and minimap match.
@@ -34,7 +39,10 @@ export function useColorMode(): "light" | "dark" {
     };
     setMode(read());
     const observer = new MutationObserver(() => setMode(read()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const onMedia = () => setMode(read());
     media.addEventListener("change", onMedia);
@@ -49,31 +57,73 @@ export function useColorMode(): "light" | "dark" {
 function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
   const { node, isRoot, hidden } = data;
   const { renderLink, connectable, onExpand, onRecenter } = useContext(GraphUi);
-  const years = node.birth || node.death ? `${node.birth?.label ?? "?"} – ${node.death?.label ?? "?"}` : "";
+  const years =
+    node.birth || node.death ? `${node.birth?.label ?? "?"} – ${node.death?.label ?? "?"}` : "";
   const handle = connectable ? "!size-2.5 !border-primary !bg-card" : "!opacity-0";
   return (
     <div
       className={cn(
-        "relative rounded-md border bg-card px-3 py-2 text-card-foreground shadow-sm transition-colors hover:border-primary",
-        isRoot && "border-primary ring-1 ring-primary",
+        "bg-card text-card-foreground hover:border-primary relative rounded-md border px-3 py-2 shadow-sm transition-colors",
+        isRoot && "border-primary ring-primary ring-1",
         node.kind === "polity" && "border-gold bg-accent",
       )}
       style={{ width: NODE_WIDTH, minHeight: NODE_HEIGHT }}
     >
-      <Handle id="t" type="target" position={Position.Top} className={handle} isConnectable={connectable} />
-      <Handle id="b" type="source" position={Position.Bottom} className={handle} isConnectable={connectable} />
-      <Handle id="l" type="source" position={Position.Left} className="!opacity-0" isConnectable={false} />
-      <Handle id="lt" type="target" position={Position.Left} className="!opacity-0" isConnectable={false} />
-      <Handle id="r" type="source" position={Position.Right} className="!opacity-0" isConnectable={false} />
-      <Handle id="rt" type="target" position={Position.Right} className="!opacity-0" isConnectable={false} />
+      <Handle
+        id="t"
+        type="target"
+        position={Position.Top}
+        className={handle}
+        isConnectable={connectable}
+      />
+      <Handle
+        id="b"
+        type="source"
+        position={Position.Bottom}
+        className={handle}
+        isConnectable={connectable}
+      />
+      <Handle
+        id="l"
+        type="source"
+        position={Position.Left}
+        className="!opacity-0"
+        isConnectable={false}
+      />
+      <Handle
+        id="lt"
+        type="target"
+        position={Position.Left}
+        className="!opacity-0"
+        isConnectable={false}
+      />
+      <Handle
+        id="r"
+        type="source"
+        position={Position.Right}
+        className="!opacity-0"
+        isConnectable={false}
+      />
+      <Handle
+        id="rt"
+        type="target"
+        position={Position.Right}
+        className="!opacity-0"
+        isConnectable={false}
+      />
       {renderLink(node, {
         className: "block pr-5 text-foreground no-underline hover:no-underline",
         children: (
           <>
-            <div className="text-sm leading-tight font-semibold">{node.name}</div>
-            {years && <div className="mt-0.5 text-xs text-muted-foreground">{years}</div>}
+            <div className="text-sm font-semibold leading-tight">{node.name}</div>
+            {years && <div className="text-muted-foreground mt-0.5 text-xs">{years}</div>}
             {node.offices.slice(0, 2).map((o) => (
-              <div key={o} className="mt-1 truncate rounded-sm bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{o}</div>
+              <div
+                key={o}
+                className="bg-muted text-muted-foreground mt-1 truncate rounded-sm px-1.5 py-0.5 text-[11px]"
+              >
+                {o}
+              </div>
             ))}
           </>
         ),
@@ -84,7 +134,7 @@ function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
           title="Lấy làm trung tâm"
           aria-label="Lấy làm trung tâm"
           onClick={() => onRecenter(node)}
-          className="nodrag absolute top-1.5 right-1.5 text-muted-foreground hover:text-primary"
+          className="nodrag text-muted-foreground hover:text-primary absolute right-1.5 top-1.5"
         >
           <Crosshair className="size-3.5" />
         </button>
@@ -94,7 +144,7 @@ function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
           type="button"
           title={`Còn ${hidden} người liên quan chưa hiện`}
           onClick={() => onExpand(node.id)}
-          className="nodrag absolute -right-2 -bottom-2 rounded-full border border-primary bg-card px-1.5 text-[11px] leading-5 font-semibold text-primary hover:bg-primary hover:text-primary-foreground"
+          className="nodrag border-primary bg-card text-primary hover:bg-primary hover:text-primary-foreground absolute -bottom-2 -right-2 rounded-full border px-1.5 text-[11px] font-semibold leading-5"
         >
           +{hidden}
         </button>
@@ -124,14 +174,19 @@ export function layout(nodes: GraphNode[], edges: GraphEdge[]): Map<string, Pos>
     hasParent.add(e.target);
   }
   dagre.layout(g);
-  const pos = new Map(nodes.map((n) => {
-    const p = g.node(n.id);
-    return [n.id, { x: p.x - NODE_WIDTH / 2, y: p.y - NODE_HEIGHT / 2 }] as const;
-  }));
+  const pos = new Map(
+    nodes.map((n) => {
+      const p = g.node(n.id);
+      return [n.id, { x: p.x - NODE_WIDTH / 2, y: p.y - NODE_HEIGHT / 2 }] as const;
+    }),
+  );
   // A spouse without parents of their own joins the partner's row, beside them.
   for (const e of edges) {
     if (e.category !== "family" || !e.symmetric) continue;
-    const [a, b] = hasParent.has(e.source) || !hasParent.has(e.target) ? [e.source, e.target] : [e.target, e.source];
+    const [a, b] =
+      hasParent.has(e.source) || !hasParent.has(e.target)
+        ? [e.source, e.target]
+        : [e.target, e.source];
     if (hasParent.has(b)) continue;
     const anchor = pos.get(a)!;
     pos.set(b, { x: anchor.x + NODE_WIDTH + GAP, y: anchor.y });
@@ -151,7 +206,8 @@ export function layout(nodes: GraphNode[], edges: GraphEdge[]): Map<string, Pos>
   return pos;
 }
 
-const overlaps = (a: Pos, b: Pos) => Math.abs(a.x - b.x) < NODE_WIDTH + GAP && Math.abs(a.y - b.y) < NODE_HEIGHT + GAP;
+const overlaps = (a: Pos, b: Pos) =>
+  Math.abs(a.x - b.x) < NODE_WIDTH + GAP && Math.abs(a.y - b.y) < NODE_HEIGHT + GAP;
 
 /**
  * Positions for nodes added next to `anchor` without moving anything already on screen:
@@ -189,7 +245,11 @@ const categoryColor: Record<string, string> = {
 };
 
 /** React Flow edges for the given relationships; line style tells family from other links. */
-export function buildEdges(edges: GraphEdge[], positions: Map<string, Pos>, hiddenTypes: Set<string>): Edge[] {
+export function buildEdges(
+  edges: GraphEdge[],
+  positions: Map<string, Pos>,
+  hiddenTypes: Set<string>,
+): Edge[] {
   return edges
     .filter((e) => !hiddenTypes.has(e.type) && positions.has(e.source) && positions.has(e.target))
     .map((e) => {
@@ -197,7 +257,8 @@ export function buildEdges(edges: GraphEdge[], positions: Map<string, Pos>, hidd
       const to = positions.get(e.target)!;
       const lateral = e.symmetric || Math.abs(from.y - to.y) < 10;
       const color = categoryColor[e.category] ?? categoryColor.other;
-      const label = e.type === "parent_of" ? e.text : [e.typeLabel, e.text].filter(Boolean).join(" · ");
+      const label =
+        e.type === "parent_of" ? e.text : [e.typeLabel, e.text].filter(Boolean).join(" · ");
       const leftToRight = from.x <= to.x;
       return {
         id: e.id,
@@ -213,7 +274,13 @@ export function buildEdges(edges: GraphEdge[], positions: Map<string, Pos>, hidd
         style: {
           stroke: color,
           strokeWidth: e.category === "family" && !e.symmetric ? 1.6 : 1.4,
-          strokeDasharray: e.disputed ? "2 4" : e.category === "family" && !e.symmetric ? undefined : e.symmetric ? "6 4" : "3 3",
+          strokeDasharray: e.disputed
+            ? "2 4"
+            : e.category === "family" && !e.symmetric
+              ? undefined
+              : e.symmetric
+                ? "6 4"
+                : "3 3",
           cursor: "pointer",
         },
         markerEnd: e.symmetric ? undefined : { type: MarkerType.ArrowClosed, color },
@@ -221,16 +288,14 @@ export function buildEdges(edges: GraphEdge[], positions: Map<string, Pos>, hidd
     });
 }
 
-/** One filter chip per relationship type present in the data. */
-export function TypeFilter({
-  edges,
-  hidden,
-  onToggle,
-}: {
+type TypeFilterProps = {
   edges: GraphEdge[];
   hidden: Set<string>;
   onToggle: (type: string) => void;
-}) {
+};
+
+/** One filter chip per relationship type present in the data. */
+export function TypeFilter({ edges, hidden, onToggle }: TypeFilterProps) {
   const seen = new Map<string, string>();
   for (const e of edges) if (!seen.has(e.type)) seen.set(e.type, e.typeLabel);
   if (seen.size < 2) return null;
@@ -243,7 +308,9 @@ export function TypeFilter({
           onClick={() => onToggle(type)}
           className={cn(
             "rounded-sm border px-2.5 py-1 text-xs transition-colors",
-            hidden.has(type) ? "bg-card text-muted-foreground line-through" : "border-primary bg-accent text-foreground",
+            hidden.has(type)
+              ? "bg-card text-muted-foreground line-through"
+              : "border-primary bg-accent text-foreground",
           )}
         >
           {label}

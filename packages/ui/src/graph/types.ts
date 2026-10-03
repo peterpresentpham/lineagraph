@@ -1,4 +1,10 @@
-export type DateLabel = { year: number; month: number | null; day: number | null; approximate: boolean; label: string };
+export type DateLabel = {
+  year: number;
+  month: number | null;
+  day: number | null;
+  approximate: boolean;
+  label: string;
+};
 
 export type GraphNode = {
   id: string;
@@ -34,8 +40,15 @@ export type EgoOptions = { depth: number; limit: number; includeDisputed: boolea
 
 export type EgoApi = {
   graph: (root: string, options: EgoOptions) => Promise<EgoGraphData>;
-  expand: (nodeId: string, known: string[], options: { limit: number; includeDisputed: boolean }) => Promise<EgoGraphData>;
+  expand: (
+    nodeId: string,
+    known: string[],
+    options: { limit: number; includeDisputed: boolean },
+  ) => Promise<EgoGraphData>;
 };
 
 /** How a node's name links to its page; each app supplies its own router link. */
-export type RenderNodeLink = (node: GraphNode, props: { className: string; children: React.ReactNode }) => React.ReactNode;
+export type RenderNodeLink = (
+  node: GraphNode,
+  props: { className: string; children: React.ReactNode },
+) => React.ReactNode;

@@ -10,7 +10,9 @@ export function normalizeText(value: string): string {
 }
 
 export function slugify(value: string): string {
-  return normalizeText(value)
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "item";
+  return (
+    normalizeText(value)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "item"
+  );
 }

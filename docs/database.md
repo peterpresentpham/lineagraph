@@ -4,12 +4,12 @@ Nguồn sự thật là các file schema Drizzle trong `packages/core/src/schema
 
 Postgres chia làm bốn schema:
 
-| Schema | Vai trò |
-|---|---|
-| `kg` | Lớp nền dùng chung: nút (nhân vật, chính thể), tên, ngày mờ, nguồn, trích dẫn, **quan hệ**, thuộc tính, danh mục |
-| `history` | Lớp miền lịch sử: hồ sơ nhân vật, hồ sơ chính thể, chức vụ (nhiệm kỳ) |
-| `learning` | Lớp học: thẻ ôn tập, nhật ký, tiến độ. Chỉ tham chiếu `kg.node` |
-| `auth` | Tài khoản admin |
+| Schema     | Vai trò                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `kg`       | Lớp nền dùng chung: nút (nhân vật, chính thể), tên, ngày mờ, nguồn, trích dẫn, **quan hệ**, thuộc tính, danh mục |
+| `history`  | Lớp miền lịch sử: hồ sơ nhân vật, hồ sơ chính thể, chức vụ (nhiệm kỳ)                                            |
+| `learning` | Lớp học: thẻ ôn tập, nhật ký, tiến độ. Chỉ tham chiếu `kg.node`                                                  |
+| `auth`     | Tài khoản admin                                                                                                  |
 
 Ghi chú đọc sơ đồ: `||--o{` là một-nhiều; `}o--o|` là nhiều-một tuỳ chọn. Mermaid hiển thị được trên GitHub và trong nhiều trình xem Markdown.
 
@@ -289,16 +289,16 @@ erDiagram
 
 Những bảng chỉ có cột `code` (và vài cột phụ) dùng làm khoá ngoại để giới hạn giá trị; thêm giá trị mới là thêm dòng dữ liệu, không sửa code. Nhãn tiếng Việt nằm trong `kg.label`.
 
-| Bảng | Dùng bởi | Admin sửa được |
-|---|---|---|
-| `kg.node_kind` | `kg.node.kind` | Không |
-| `kg.name_kind` | `kg.name.kind` | Có |
-| `kg.language`, `kg.calendar` | tên, nguồn, ngày | Không |
-| `kg.relation_type` | `kg.relation.type` | Có, ở trang "Loại quan hệ" |
-| `kg.attribute_type` | `kg.attribute.type` | Có |
-| `history.polity_type` | `history.polity` | Có |
-| `history.office_type` | `history.tenure` | Có |
-| `history.succession_mode` | `history.tenure`, `tenure_succession` | Có |
+| Bảng                         | Dùng bởi                              | Admin sửa được             |
+| ---------------------------- | ------------------------------------- | -------------------------- |
+| `kg.node_kind`               | `kg.node.kind`                        | Không                      |
+| `kg.name_kind`               | `kg.name.kind`                        | Có                         |
+| `kg.language`, `kg.calendar` | tên, nguồn, ngày                      | Không                      |
+| `kg.relation_type`           | `kg.relation.type`                    | Có, ở trang "Loại quan hệ" |
+| `kg.attribute_type`          | `kg.attribute.type`                   | Có                         |
+| `history.polity_type`        | `history.polity`                      | Có                         |
+| `history.office_type`        | `history.tenure`                      | Có                         |
+| `history.succession_mode`    | `history.tenure`, `tenure_succession` | Có                         |
 
 ## 6. Những chỗ chưa có khoá ngoại
 

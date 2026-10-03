@@ -8,7 +8,10 @@ import { requireAdmin } from "../middleware/auth.js";
 export const opsRouter = Router();
 opsRouter.use("/stats", requireAdmin);
 
-opsRouter.get("/stats", handle(async (_req, res) => res.json(await getStats())));
+opsRouter.get(
+  "/stats",
+  handle(async (_req, res) => res.json(await getStats())),
+);
 
 opsRouter.get("/consistency-report", requireAdmin, (_req, res) => {
   res.status(501).json({ error: "not_implemented" });

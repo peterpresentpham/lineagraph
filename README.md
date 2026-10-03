@@ -23,6 +23,7 @@ packages/
 ```
 
 Trạng thái: đã chạy được luồng cơ bản.
+
 - **Web còn có**: trang **Sơ đồ** (`/graph`): chọn một nhân vật/chính thể làm trung tâm, hiện tối đa 40 người liên quan, bấm "+N"/"Tải thêm" để mở rộng, bấm ◎ để đổi trung tâm (vẽ bằng @xyflow/react; admin có cùng sơ đồ ở tab "Sơ đồ", bấm đường nối để sửa, kéo giữa hai ô để thêm quan hệ) và trang **Tìm quan hệ** giữa hai đối tượng (vd. Lê Thái Tổ ↔ Lê Thánh Tông → "ông nội / cháu nội", cả họ nội lẫn họ ngoại, kèm các chuỗi quan hệ).
 - **Admin** (đăng nhập bắt buộc): thêm/sửa/xoá nhân vật, chính thể (hồ sơ đầy đủ: tên, tiểu sử, thông tin tuỳ ý, chức vụ kèm niên hiệu), quan hệ bất kỳ giữa nhân vật/chính thể (cha/mẹ–con, vợ/chồng, thầy trò, đồng minh, kế vị… và loại quan hệ mới tự thêm), nguồn tư liệu, danh mục.
 - **Web** (công khai, không đăng nhập): trang chủ, tìm kiếm không dấu, danh sách và trang chi tiết nhân vật/chính thể, cây phả hệ (tổ tiên, hậu duệ), dòng thời gian.
@@ -46,10 +47,10 @@ pnpm import:wikidata [--apply]   # chạy tay, mặc định dry-run
 
 Tài khoản admin dùng để test (chỉ môi trường dev, **đổi khi lên production**):
 
-| | |
-|---|---|
-| Email | `admin@lineagraph.test` |
-| Mật khẩu | `line@123` |
+|          |                         |
+| -------- | ----------------------- |
+| Email    | `admin@lineagraph.test` |
+| Mật khẩu | `line@123`              |
 
 Khi sửa schema trong `packages/core/src/schema/`:
 

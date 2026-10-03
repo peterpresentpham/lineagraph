@@ -38,7 +38,9 @@ export async function createRegistryItem(table: string, input: { code: string; l
   const t = resolve(table);
   if (!t.editable) throw new ServiceError(400, "Danh mục này chưa hỗ trợ thêm từ giao diện");
   await db.transaction(async (tx) => {
-    await tx.execute(sql`insert into ${sql.raw(`${t.schema}.${t.name}`)} (code) values (${input.code})`);
+    await tx.execute(
+      sql`insert into ${sql.raw(`${t.schema}.${t.name}`)} (code) values (${input.code})`,
+    );
     await tx.execute(
       sql`insert into kg.label (namespace, code, language, text) values (${t.name}, ${input.code}, 'vi', ${input.label})`,
     );

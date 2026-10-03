@@ -139,7 +139,13 @@ export type Citation = {
   source: { id: string; title: string; author: string | null; url: string | null };
 };
 
-export type SearchResult = { id: string; kind: "person" | "polity"; slug: string; name: string; matched: string };
+export type SearchResult = {
+  id: string;
+  kind: "person" | "polity";
+  slug: string;
+  name: string;
+  matched: string;
+};
 
 export type TimelineEntry = {
   kind: "person" | "polity";

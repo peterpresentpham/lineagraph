@@ -1,8 +1,17 @@
 import { Router } from "express";
 import {
-  createRelationType, createRelationship, deleteRelationType, deleteRelationship, findRelations,
-  getRelationshipForEdit, listRelationTypes, listRelationships, relationTypeInput, relationshipInput,
-  updateRelationType, updateRelationship,
+  createRelationType,
+  createRelationship,
+  deleteRelationType,
+  deleteRelationship,
+  findRelations,
+  getRelationshipForEdit,
+  listRelationTypes,
+  listRelationships,
+  relationTypeInput,
+  relationshipInput,
+  updateRelationType,
+  updateRelationship,
 } from "@lineagraph/core";
 import { z } from "zod";
 import { handle, param } from "../http.js";
@@ -26,50 +35,80 @@ relationsRouter.get(
   }),
 );
 
-relationsRouter.get("/relation-types", handle(async (_req, res) => res.json(await listRelationTypes())));
-relationsRouter.post("/relation-types", requireAdmin, handle(async (req, res) => {
-  await createRelationType(relationTypeInput.parse(req.body));
-  res.status(201).end();
-}));
-relationsRouter.put("/relation-types/:code", requireAdmin, handle(async (req, res) => {
-  const body = z
-    .object({
-      label: z.string().trim().min(1, "Nhãn không được để trống"),
-      inverseLabel: z.string().trim().nullish(),
-      category: z.string().trim().min(1).optional(),
-      isAcyclic: z.boolean().optional(),
-    })
-    .parse(req.body);
-  await updateRelationType(param(req, "code"), body);
-  res.status(204).end();
-}));
-relationsRouter.delete("/relation-types/:code", requireAdmin, handle(async (req, res) => {
-  await deleteRelationType(param(req, "code"));
-  res.status(204).end();
-}));
+relationsRouter.get(
+  "/relation-types",
+  handle(async (_req, res) => res.json(await listRelationTypes())),
+);
+relationsRouter.post(
+  "/relation-types",
+  requireAdmin,
+  handle(async (req, res) => {
+    await createRelationType(relationTypeInput.parse(req.body));
+    res.status(201).end();
+  }),
+);
+relationsRouter.put(
+  "/relation-types/:code",
+  requireAdmin,
+  handle(async (req, res) => {
+    const body = z
+      .object({
+        label: z.string().trim().min(1, "Nhãn không được để trống"),
+        inverseLabel: z.string().trim().nullish(),
+        category: z.string().trim().min(1).optional(),
+        isAcyclic: z.boolean().optional(),
+      })
+      .parse(req.body);
+    await updateRelationType(param(req, "code"), body);
+    res.status(204).end();
+  }),
+);
+relationsRouter.delete(
+  "/relation-types/:code",
+  requireAdmin,
+  handle(async (req, res) => {
+    await deleteRelationType(param(req, "code"));
+    res.status(204).end();
+  }),
+);
 
 relationsRouter.use("/relationships", requireAdmin);
-relationsRouter.get("/relationships", handle(async (req, res) => {
-  const q = req.query;
-  res.json(
-    await listRelationships({
-      nodeId: typeof q.nodeId === "string" ? q.nodeId : undefined,
-      type: typeof q.type === "string" ? q.type : undefined,
-      q: typeof q.q === "string" ? q.q : undefined,
-      limit: q.limit ? Number(q.limit) : undefined,
-      offset: q.offset ? Number(q.offset) : undefined,
-    }),
-  );
-}));
-relationsRouter.get("/relationships/:id", handle(async (req, res) => res.json(await getRelationshipForEdit(param(req, "id")))));
-relationsRouter.post("/relationships", handle(async (req, res) => {
-  res.status(201).json(await createRelationship(relationshipInput.parse(req.body)));
-}));
-relationsRouter.put("/relationships/:id", handle(async (req, res) => {
-  await updateRelationship(param(req, "id"), relationshipInput.parse(req.body));
-  res.status(204).end();
-}));
-relationsRouter.delete("/relationships/:id", handle(async (req, res) => {
-  await deleteRelationship(param(req, "id"));
-  res.status(204).end();
-}));
+relationsRouter.get(
+  "/relationships",
+  handle(async (req, res) => {
+    const q = req.query;
+    res.json(
+      await listRelationships({
+        nodeId: typeof q.nodeId === "string" ? q.nodeId : undefined,
+        type: typeof q.type === "string" ? q.type : undefined,
+        q: typeof q.q === "string" ? q.q : undefined,
+        limit: q.limit ? Number(q.limit) : undefined,
+        offset: q.offset ? Number(q.offset) : undefined,
+      }),
+    );
+  }),
+);
+relationsRouter.get(
+  "/relationships/:id",
+  handle(async (req, res) => res.json(await getRelationshipForEdit(param(req, "id")))),
+);
+relationsRouter.post(
+  "/relationships",
+  handle(async (req, res) => {
+    res.status(201).json(await createRelationship(relationshipInput.parse(req.body)));
+  }),
+);
+relationsRouter.put(
+  "/relationships/:id",
+  handle(async (req, res) => {
+    await updateRelationship(param(req, "id"), relationshipInput.parse(req.body));
+    res.status(204).end();
+  }),
+);
+relationsRouter.delete(
+  "/relationships/:id",
+  handle(async (req, res) => {
+    await deleteRelationship(param(req, "id"));
+    res.status(204).end();
+  }),
+);

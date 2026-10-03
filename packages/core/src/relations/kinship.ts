@@ -1,11 +1,3 @@
-// Vietnamese kinship terms derived from parent/child links. Pure functions: no database.
-//
-// Blood relatives are found through the nearest common ancestor. If person A is `k`
-// generations below that ancestor and B is `m` generations below, the pair (k, m) decides the
-// term: (0, 2) grandparent/grandchild, (1, 1) siblings, (2, 1) uncle-aunt/nephew-niece,
-// (2, 2) first cousins, and so on. Beyond the named cases the answer is "cùng tổ N đời",
-// followed by "theo dòng cha" / "theo dòng mẹ" when the whole line is on one side.
-
 export type Sex = "male" | "female" | "unknown";
 
 export type KinPerson = { id: string; sex: Sex; birthYear: number | null };
@@ -56,7 +48,10 @@ function ancestorPaths(startId: string, parentsOf: Map<string, ParentLink[]>) {
       const last = path.ids[path.ids.length - 1]!;
       for (const link of parentsOf.get(last) ?? []) {
         if (path.ids.includes(link.parentId)) continue;
-        const extended = { ids: [...path.ids, link.parentId], adoptive: path.adoptive || link.variant === "adoptive" };
+        const extended = {
+          ids: [...path.ids, link.parentId],
+          adoptive: path.adoptive || link.variant === "adoptive",
+        };
         next.push(extended);
         const list = found.get(link.parentId) ?? [];
         list.push(extended);
@@ -166,7 +161,11 @@ function termOf(
     const via = pathY[1] ? side(sexOf(ctx, pathY[1])) : null; // y's parent decides nội / ngoại
     if (m === 1) return { term: pick(xSex, "cha", "mẹ", "cha/mẹ"), note: null };
     if (m === 2) return { term: withSide(pick(xSex, "ông", "bà", "ông/bà"), via), note: null };
-    if (m === 3) return { term: `${pick(xSex, "cụ ông", "cụ bà", "cụ")}${via ? ` bên ${via}` : ""}`, note: null };
+    if (m === 3)
+      return {
+        term: `${pick(xSex, "cụ ông", "cụ bà", "cụ")}${via ? ` bên ${via}` : ""}`,
+        note: null,
+      };
     if (m === 4) return { term: `kỵ${via ? ` bên ${via}` : ""}`, note: null };
     return { term: `tổ ${m} đời`, note: lineNote(pathY, ctx) };
   }
@@ -185,7 +184,11 @@ function termOf(
   if (k === 1 && m === 1) {
     const cmp = olderThan(ctx, x, y);
     const term =
-      cmp > 0 ? pick(xSex, "anh", "chị", "anh/chị") : cmp < 0 ? "em" : pick(xSex, "anh/em trai", "chị/em gái", "anh chị em");
+      cmp > 0
+        ? pick(xSex, "anh", "chị", "anh/chị")
+        : cmp < 0
+          ? "em"
+          : pick(xSex, "anh/em trai", "chị/em gái", "anh chị em");
     return { term, note: siblingNote(pathX, pathY, ctx) };
   }
 
@@ -256,7 +259,11 @@ function siblingNote(pathX: string[], pathY: string[], ctx: Ctx): string | null 
   const shared = parentsX.filter((p) => parentsY.includes(p));
   // Only claim "half" when both sides have two recorded parents; a missing parent is unknown, not different.
   if (shared.length === 1 && parentsX.length > 1 && parentsY.length > 1) {
-    return sexOf(ctx, shared[0]!) === "male" ? "cùng cha khác mẹ" : sexOf(ctx, shared[0]!) === "female" ? "cùng mẹ khác cha" : "chỉ chung một người cha/mẹ";
+    return sexOf(ctx, shared[0]!) === "male"
+      ? "cùng cha khác mẹ"
+      : sexOf(ctx, shared[0]!) === "female"
+        ? "cùng mẹ khác cha"
+        : "chỉ chung một người cha/mẹ";
   }
   return null;
 }

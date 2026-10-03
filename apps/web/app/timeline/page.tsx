@@ -5,7 +5,10 @@ import { Empty } from "@/components/Section";
 import { apiGet } from "@/lib/api";
 import type { TimelineEntry } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Dòng thời gian" };
+export const metadata: Metadata = {
+  title: "Dòng thời gian",
+  description: "Chính thể và nhân vật lịch sử Việt Nam theo thứ tự thời gian, nhóm theo thế kỷ.",
+};
 
 const century = (year: number) => (year > 0 ? Math.ceil(year / 100) : -Math.ceil(-year / 100));
 const centuryLabel = (c: number) => (c > 0 ? `Thế kỷ ${c}` : `Thế kỷ ${-c} TCN`);
@@ -21,7 +24,9 @@ export default async function TimelinePage() {
   return (
     <>
       <h1>Dòng thời gian</h1>
-      <p className="mt-1 text-muted-foreground">Chính thể và nhân vật theo thứ tự thời gian, nhóm theo thế kỷ.</p>
+      <p className="text-muted-foreground mt-1">
+        Chính thể và nhân vật theo thứ tự thời gian, nhóm theo thế kỷ.
+      </p>
       <div className="mt-6 flex flex-col gap-8">
         {entries.length === 0 && <Empty>Chưa có dữ liệu.</Empty>}
         {[...groups.entries()].map(([c, items]) => (
@@ -32,13 +37,17 @@ export default async function TimelinePage() {
                 <li key={`${e.kind}-${e.slug}`}>
                   <Link
                     href={`/${e.kind}/${e.slug}`}
-                    className="flex items-center justify-between gap-3 rounded-[var(--radius)] border bg-card p-3 no-underline transition-shadow hover:no-underline hover:shadow-md"
+                    className="bg-card flex items-center justify-between gap-3 rounded-[var(--radius)] border p-3 no-underline transition-shadow hover:no-underline hover:shadow-md"
                   >
                     <span>
-                      <span className="font-semibold text-foreground">{e.name}</span>
-                      <span className="ml-3 text-sm text-muted-foreground">{e.start?.label} – {e.end?.label ?? "?"}</span>
+                      <span className="text-foreground font-semibold">{e.name}</span>
+                      <span className="text-muted-foreground ml-3 text-sm">
+                        {e.start?.label} – {e.end?.label ?? "?"}
+                      </span>
                     </span>
-                    <Badge variant={e.kind === "polity" ? "success" : "info"}>{e.kind === "polity" ? "Chính thể" : "Nhân vật"}</Badge>
+                    <Badge variant={e.kind === "polity" ? "success" : "info"}>
+                      {e.kind === "polity" ? "Chính thể" : "Nhân vật"}
+                    </Badge>
                   </Link>
                 </li>
               ))}

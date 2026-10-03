@@ -1,17 +1,27 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { EgoGraph, type EgoApi, type GraphEdge, type GraphNode, type RenderNodeLink } from "@lineagraph/ui/graph";
+import {
+  EgoGraph,
+  type EgoApi,
+  type GraphEdge,
+  type GraphNode,
+  type RenderNodeLink,
+} from "@lineagraph/ui/graph";
 import { api } from "../lib/api";
 import type { NodeRef } from "../lib/types";
 import { RelationForm } from "./RelationForm";
 
 const renderLink: RenderNodeLink = (node, { className, children }) => (
-  <Link to={`/${node.kind === "person" ? "persons" : "polities"}/${node.id}`} className={className}>{children}</Link>
+  <Link to={`/${node.kind === "person" ? "persons" : "polities"}/${node.id}`} className={className}>
+    {children}
+  </Link>
 );
+
+type Props = { node: NodeRef };
 
 // The graph around one person or polity, with editing: click a line to edit that relationship,
 // drag from one box to another to create one.
-export function NodeGraph({ node }: { node: NodeRef }) {
+export function NodeGraph({ node }: Props) {
   const [reloadKey, setReloadKey] = useState(0);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -25,13 +35,20 @@ export function NodeGraph({ node }: { node: NodeRef }) {
     };
     return {
       graph: (root, o) =>
-        api.get<Awaited<ReturnType<EgoApi["graph"]>>>(
-          `/nodes/${encodeURIComponent(root)}/graph?depth=${o.depth}&limit=${o.limit}&disputed=${o.includeDisputed ? 1 : 0}`,
-        ).then(remember),
+        api
+          .get<Awaited<ReturnType<EgoApi["graph"]>>>(
+            `/nodes/${encodeURIComponent(root)}/graph?depth=${o.depth}&limit=${o.limit}&disputed=${o.includeDisputed ? 1 : 0}`,
+          )
+          .then(remember),
       expand: (nodeId, known, o) =>
-        api.post<Awaited<ReturnType<EgoApi["expand"]>>>("/graph/expand", {
-          nodeId, known, limit: o.limit, includeDisputed: o.includeDisputed,
-        }).then(remember),
+        api
+          .post<Awaited<ReturnType<EgoApi["expand"]>>>("/graph/expand", {
+            nodeId,
+            known,
+            limit: o.limit,
+            includeDisputed: o.includeDisputed,
+          })
+          .then(remember),
     };
   }, []);
 

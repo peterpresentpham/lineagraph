@@ -7,9 +7,19 @@ export type DateValue = {
 };
 
 // Shape sent to the API for dates (label is display-only).
-export type DateInput = { year: number; month?: number | null; day?: number | null; approximate: boolean };
+export type DateInput = {
+  year: number;
+  month?: number | null;
+  day?: number | null;
+  approximate: boolean;
+};
 
-export type NameValue = { name: string; kind: string; language?: string | null; isPrimary: boolean };
+export type NameValue = {
+  name: string;
+  kind: string;
+  language?: string | null;
+  isPrimary: boolean;
+};
 
 export type PersonSummary = {
   id: string;
@@ -52,6 +62,7 @@ export type RelationshipView = {
   id: string;
   type: string;
   typeLabel: string;
+  inverseTypeLabel: string;
   category: string;
   from: NodeRef;
   to: NodeRef;

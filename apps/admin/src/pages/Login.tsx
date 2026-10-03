@@ -29,19 +29,31 @@ export function Login() {
 
   return (
     <div className="relative grid min-h-screen place-items-center p-4">
-      <ThemeToggle className="absolute top-4 right-4" />
+      <ThemeToggle className="absolute right-4 top-4" />
       <Card className="w-full max-w-sm">
         <CardContent className="p-6">
           <div className="mb-6">
             <h1 className="text-2xl">Sử Phả</h1>
-            <p className="mt-1 text-muted-foreground">Đăng nhập trang quản trị</p>
+            <p className="text-muted-foreground mt-1">Đăng nhập trang quản trị</p>
           </div>
           <form onSubmit={submit} className="flex flex-col gap-4">
             <Field label="Email">
-              <Input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input
+                type="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </Field>
             <Field label="Mật khẩu">
-              <Input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </Field>
             <Button type="submit" disabled={busy} className="mt-2 w-full">
               {busy ? "Đang đăng nhập..." : "Đăng nhập"}

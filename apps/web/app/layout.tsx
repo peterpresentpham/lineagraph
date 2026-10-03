@@ -1,14 +1,37 @@
-import type { Metadata } from "next";
-import { themeInitScript } from "@lineagraph/ui";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SITE_URL } from "@/lib/site";
+import { themeInitScript } from "@lineagraph/ui";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const description = "Học lịch sử Việt Nam qua phả hệ, nhân vật và triều đại";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: "Sử Phả", template: "%s · Sử Phả" },
-  description: "Học lịch sử Việt Nam qua phả hệ, nhân vật và triều đại",
+  description,
+  keywords: ["lịch sử Việt Nam", "phả hệ", "gia phả", "triều đại", "nhân vật lịch sử"],
+  openGraph: {
+    title: "Sử Phả",
+    description,
+    siteName: "Sử Phả",
+    locale: "vi_VN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sử Phả",
+    description,
+  },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const viewport: Viewport = {
+  themeColor: "#9c2a1c",
+};
+
+type Props = { children: React.ReactNode };
+
+export default function RootLayout({ children }: Props) {
   return (
     <html lang="vi" suppressHydrationWarning>
       <head>
@@ -22,8 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <SiteHeader />
-        <main className="mx-auto min-h-[calc(100vh-4rem)] max-w-[90rem] px-4 sm:px-6 lg:px-10 py-8">{children}</main>
-        <footer className="border-t py-6 text-center text-xs text-muted-foreground">
+        <main className="max-w-360 mx-auto min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6 lg:px-10">
+          {children}
+        </main>
+        <footer className="text-muted-foreground border-t py-6 text-center text-xs">
           Sử Phả — học lịch sử Việt Nam qua phả hệ
         </footer>
       </body>

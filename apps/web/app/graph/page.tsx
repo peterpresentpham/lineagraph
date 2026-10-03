@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { GraphExplorer } from "@/components/GraphExplorer";
 import { apiGet } from "@/lib/api";
 
-export const metadata: Metadata = { title: "Sơ đồ quan hệ" };
+export const metadata: Metadata = {
+  title: "Sơ đồ quan hệ",
+  description: "Sơ đồ trực quan quan hệ giữa nhân vật và chính thể trong lịch sử Việt Nam.",
+};
 
 type Props = { searchParams: Promise<{ node?: string }> };
 
@@ -18,14 +21,17 @@ export default async function GraphPage({ searchParams }: Props) {
       try {
         const found = await apiGet<{ name: string }>(`/polities/${encodeURIComponent(node)}`);
         initial = { slug: node, name: found.name };
-      } catch { /* unknown slug: start with an empty picker */ }
+      } catch {
+        /* unknown slug: start with an empty picker */
+      }
     }
   }
   return (
     <>
       <h1>Sơ đồ quan hệ</h1>
-      <p className="mt-1 mb-6 text-muted-foreground">
-        Chọn một nhân vật hoặc chính thể để xem những ai liên quan quanh họ. Mỗi lần hiện một số lượng vừa phải, bấm “+N” hoặc “Tải thêm” để mở rộng.
+      <p className="text-muted-foreground mb-6 mt-1">
+        Chọn một nhân vật hoặc chính thể để xem những ai liên quan quanh họ. Mỗi lần hiện một số
+        lượng vừa phải, bấm “+N” hoặc “Tải thêm” để mở rộng.
       </p>
       <GraphExplorer key={initial?.slug ?? "none"} initial={initial} />
     </>

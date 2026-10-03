@@ -1,13 +1,24 @@
-import { useEffect, useState } from "react";
+import {
+  Checkbox,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+  toast,
+} from "@lineagraph/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Checkbox, Input, Label, Textarea, toast } from "@lineagraph/ui";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { toDateInput, variantOptions } from "../lib/format";
 import { errorMessage } from "../lib/hooks";
 import type { DateInput, NodeKind, NodeRef, RelationType, RelationshipView } from "../lib/types";
 import { DateField, cleanDate } from "./DateField";
 import { EntityPicker } from "./EntityPicker";
-import { Field, NativeSelect } from "./Field";
+import { Field } from "./Field";
 import { FormSheet } from "./FormSheet";
 
 type Form = {
@@ -23,22 +34,27 @@ type Form = {
 };
 
 const emptyForm = (fromId: string | null): Form => ({
-  type: "", fromId, toId: null, variant: "", label: "", note: "", disputed: false, start: null, end: null,
+  type: "",
+  fromId,
+  toId: null,
+  variant: "",
+  label: "",
+  note: "",
+  disputed: false,
+  start: null,
+  end: null,
 });
+const UNSET_TYPE = "__unset__";
+const UNKNOWN_VARIANT = "__unknown__";
 
 export const useRelationTypes = () =>
-  useQuery({ queryKey: ["relation-types"], queryFn: () => api.get<RelationType[]>("/relation-types"), staleTime: 60_000 });
+  useQuery({
+    queryKey: ["relation-types"],
+    queryFn: () => api.get<RelationType[]>("/relation-types"),
+    staleTime: 60_000,
+  });
 
-// Create or edit one relationship. When opened from a person's or polity's page, `fixedFrom`
-// pins the first end so the admin only picks the type and the other end.
-export function RelationForm({
-  open,
-  onOpenChange,
-  editingId,
-  fixedFrom,
-  preset,
-  onSaved,
-}: {
+type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editingId?: string | null;
@@ -46,7 +62,11 @@ export function RelationForm({
   /** Start a new relationship with both ends already chosen (for example from the graph). */
   preset?: { from: NodeRef; to: NodeRef };
   onSaved?: () => void;
-}) {
+};
+
+// Create or edit one relationship. When opened from a person's or polity's page, `fixedFrom`
+// pins the first end so the admin only picks the type and the other end.
+export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset, onSaved }: Props) {
   const queryClient = useQueryClient();
   const { data: types } = useRelationTypes();
   const [form, setForm] = useState<Form>(emptyForm(fixedFrom?.id ?? null));
@@ -56,20 +76,44 @@ export function RelationForm({
   useEffect(() => {
     if (!open) return;
     if (!editingId) {
-      setForm({ ...emptyForm(preset?.from.id ?? fixedFrom?.id ?? null), toId: preset?.to.id ?? null });
+      setForm({
+        ...emptyForm(preset?.from.id ?? fixedFrom?.id ?? null),
+        toId: preset?.to.id ?? null,
+      });
       setNames({ from: preset?.from.name ?? fixedFrom?.name, to: preset?.to.name });
       setFromKind(preset?.from.kind ?? fixedFrom?.kind ?? null);
       return;
     }
-    api.get<RelationshipView & { fromId: string; toId: string }>(`/relationships/${editingId}`).then((r) => {
-      setForm({
-        type: r.type, fromId: r.fromId, toId: r.toId, variant: r.variant ?? "", label: r.label ?? "", note: r.note ?? "",
-        disputed: r.disputed, start: toDateInput(r.start), end: toDateInput(r.end),
-      });
-      setNames({ from: r.from.name, to: r.to.name });
-      setFromKind(r.from.kind);
-    }).catch((e) => toast.error(errorMessage(e)));
-  }, [open, editingId, fixedFrom?.id, preset?.from.id, preset?.to.id]);
+    api
+      .get<RelationshipView & { fromId: string; toId: string }>(`/relationships/${editingId}`)
+      .then((r) => {
+        setForm({
+          type: r.type,
+          fromId: r.fromId,
+          toId: r.toId,
+          variant: r.variant ?? "",
+          label: r.label ?? "",
+          note: r.note ?? "",
+          disputed: r.disputed,
+          start: toDateInput(r.start),
+          end: toDateInput(r.end),
+        });
+        setNames({ from: r.from.name, to: r.to.name });
+        setFromKind(r.from.kind);
+      })
+      .catch((e) => toast.error(errorMessage(e)));
+  }, [
+    open,
+    editingId,
+    fixedFrom?.id,
+    preset?.from.id,
+    preset?.to.id,
+    preset?.from.name,
+    preset?.from.kind,
+    preset?.to.name,
+    fixedFrom?.name,
+    fixedFrom?.kind,
+  ]);
 
   const selected = types?.find((t) => t.code === form.type);
   // Offer every type whose first end can be this kind (both sides of each pair, so the admin
@@ -87,7 +131,9 @@ export function RelationForm({
         start: cleanDate(form.start),
         end: cleanDate(form.end),
       };
-      return editingId ? api.put(`/relationships/${editingId}`, body) : api.post("/relationships", body);
+      return editingId
+        ? api.put(`/relationships/${editingId}`, body)
+        : api.post("/relationships", body);
     },
     onSuccess: () => {
       toast.success(editingId ? "Đã cập nhật quan hệ" : "Đã thêm quan hệ");
@@ -99,7 +145,10 @@ export function RelationForm({
     onError: (e) => toast.error(errorMessage(e)),
   });
 
-  const sentence = form.type && names.from && names.to ? `${names.from} · ${selected?.label ?? form.type} · ${names.to}` : null;
+  const sentence =
+    form.type && names.from && names.to
+      ? `${names.from} · ${selected?.label ?? form.type} · ${names.to}`
+      : null;
 
   return (
     <FormSheet
@@ -112,7 +161,9 @@ export function RelationForm({
     >
       <Field label="Đối tượng thứ nhất">
         {fixedFrom ? (
-          <div className="flex h-11 items-center rounded-[var(--radius)] border bg-muted px-3 text-[15px]">{fixedFrom.name}</div>
+          <div className="bg-muted rounded-(--radius) flex h-11 items-center border px-3 text-[15px]">
+            {fixedFrom.name}
+          </div>
         ) : (
           <EntityPicker
             key={`from-${editingId ?? "new"}-${open}`}
@@ -128,12 +179,24 @@ export function RelationForm({
         )}
       </Field>
       <Field label="Loại quan hệ">
-        <NativeSelect value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, toId: null, variant: "" })}>
-          <option value="">Chọn loại quan hệ...</option>
-          {options.map((t) => (
-            <option key={t.code} value={t.code}>{t.label}</option>
-          ))}
-        </NativeSelect>
+        <Select
+          value={form.type || UNSET_TYPE}
+          onValueChange={(v) =>
+            setForm({ ...form, type: v === UNSET_TYPE ? "" : v, toId: null, variant: "" })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNSET_TYPE}>Chọn loại quan hệ...</SelectItem>
+            {options.map((t) => (
+              <SelectItem key={t.code} value={t.code}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
       {form.type && (
         <Field label="Đối tượng thứ hai">
@@ -149,26 +212,53 @@ export function RelationForm({
           />
         </Field>
       )}
-      {sentence && <p className="rounded-[var(--radius)] border border-dashed bg-accent px-3 py-2 text-sm">{sentence}</p>}
+      {sentence && (
+        <p className="bg-accent rounded-(--radius) border border-dashed px-3 py-2 text-sm">
+          {sentence}
+        </p>
+      )}
 
       {variants ? (
         <Field label="Loại cụ thể">
-          <NativeSelect value={form.variant} onChange={(e) => setForm({ ...form, variant: e.target.value })}>
-            <option value="">Không rõ</option>
-            {variants.map((v) => <option key={v.code} value={v.code}>{v.label}</option>)}
-          </NativeSelect>
+          <Select
+            value={form.variant || UNKNOWN_VARIANT}
+            onValueChange={(v) => setForm({ ...form, variant: v === UNKNOWN_VARIANT ? "" : v })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={UNKNOWN_VARIANT}>Không rõ</SelectItem>
+              {variants.map((v) => (
+                <SelectItem key={v.code} value={v.code}>
+                  {v.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       ) : null}
       <Field label="Nhãn hiển thị" hint='Ví dụ "Hoàng hậu", "Quân sư". Hiện kèm bên cạnh quan hệ.'>
         <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
       </Field>
-      <DateField label="Bắt đầu" value={form.start} onChange={(start) => setForm({ ...form, start })} />
+      <DateField
+        label="Bắt đầu"
+        value={form.start}
+        onChange={(start) => setForm({ ...form, start })}
+      />
       <DateField label="Kết thúc" value={form.end} onChange={(end) => setForm({ ...form, end })} />
       <Field label="Ghi chú">
-        <Textarea rows={3} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+        <Textarea
+          rows={3}
+          value={form.note}
+          onChange={(e) => setForm({ ...form, note: e.target.value })}
+        />
       </Field>
       <Label className="flex items-center gap-2 font-normal">
-        <Checkbox checked={form.disputed} onCheckedChange={(c) => setForm({ ...form, disputed: c === true })} />
+        <Checkbox
+          checked={form.disputed}
+          onCheckedChange={(c) => setForm({ ...form, disputed: c === true })}
+        />
         Còn tranh cãi (ẩn khỏi kết quả tìm mối liên hệ trừ khi người xem bật)
       </Label>
     </FormSheet>

@@ -8,7 +8,9 @@ export const historicityLabels: Record<string, string> = {
 };
 
 export const toDateInput = (value: DateValue | null | undefined): DateInput | null =>
-  value ? { year: value.year, month: value.month, day: value.day, approximate: value.approximate } : null;
+  value
+    ? { year: value.year, month: value.month, day: value.day, approximate: value.approximate }
+    : null;
 
 export const lifeSpan = (birth: DateValue | null, death: DateValue | null) =>
   birth || death ? `${birth?.label ?? "?"} – ${death?.label ?? "?"}` : "";

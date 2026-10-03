@@ -19,8 +19,15 @@ export type RelationTypeView = {
 
 export async function listRelationTypes(): Promise<RelationTypeView[]> {
   const rows = await db.execute<{
-    code: string; label: string | null; category: string; inverse_code: string | null; is_symmetric: boolean;
-    is_primary: boolean; is_acyclic: boolean; subject_kinds: string[]; object_kinds: string[];
+    code: string;
+    label: string | null;
+    category: string;
+    inverse_code: string | null;
+    is_symmetric: boolean;
+    is_primary: boolean;
+    is_acyclic: boolean;
+    subject_kinds: string[];
+    object_kinds: string[];
   }>(
     sql`select t.code, l.text as label, t.category, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic,
                t.subject_kinds, t.object_kinds
@@ -53,8 +60,10 @@ async function setLabel(code: string, text: string) {
 // Creates a relation type, and its inverse as a second (non-primary) row when it has one.
 export async function createRelationType(input: RelationTypeInput) {
   const symmetric = input.isSymmetric || !input.inverseCode;
-  if (!symmetric && !input.inverseLabel) throw new ServiceError(400, "Nhập nhãn cho chiều ngược lại");
-  if (!symmetric && input.inverseCode === input.code) throw new ServiceError(400, "Mã chiều ngược phải khác mã chính");
+  if (!symmetric && !input.inverseLabel)
+    throw new ServiceError(400, "Nhập nhãn cho chiều ngược lại");
+  if (!symmetric && input.inverseCode === input.code)
+    throw new ServiceError(400, "Mã chiều ngược phải khác mã chính");
   await db.transaction(async (tx) => {
     await tx.insert(relationType).values({
       code: input.code,
@@ -84,7 +93,10 @@ export async function createRelationType(input: RelationTypeInput) {
 }
 
 // Only labels, category and the acyclic flag can change: the code and kinds are referenced by data.
-export async function updateRelationType(code: string, input: { label: string; inverseLabel?: string | null; category?: string; isAcyclic?: boolean }) {
+export async function updateRelationType(
+  code: string,
+  input: { label: string; inverseLabel?: string | null; category?: string; isAcyclic?: boolean },
+) {
   const [row] = await db.select().from(relationType).where(eq(relationType.code, code));
   if (!row) throw notFound("loại quan hệ");
   await setLabel(code, input.label);
@@ -104,9 +116,15 @@ export async function deleteRelationType(code: string) {
   if (!row) throw notFound("loại quan hệ");
   const codes = row.inverseCode ? [code, row.inverseCode] : [code];
   await db.transaction(async (tx) => {
-    for (const c of codes) await tx.execute(sql`delete from kg.label where namespace = 'relation_type' and code = ${c}`);
+    for (const c of codes)
+      await tx.execute(sql`delete from kg.label where namespace = 'relation_type' and code = ${c}`);
     // The pair references each other, so detach before deleting.
-    await tx.execute(sql`update kg.relation_type set inverse_code = null where code in (${sql.join(codes.map((c) => sql`${c}`), sql`, `)})`);
+    await tx.execute(
+      sql`update kg.relation_type set inverse_code = null where code in (${sql.join(
+        codes.map((c) => sql`${c}`),
+        sql`, `,
+      )})`,
+    );
     for (const c of codes) await tx.execute(sql`delete from kg.relation_type where code = ${c}`);
   });
 }

@@ -47,30 +47,227 @@ const successionModes = {
 // relationship (the other is derived when reading), see kg.relation_type.is_primary.
 type Kind = "person" | "polity";
 const relationTypes: {
-  code: string; label: string; inverse: string | null; symmetric: boolean; primary: boolean;
-  acyclic?: boolean; category: string; subjects: Kind[]; objects: Kind[];
+  code: string;
+  label: string;
+  inverse: string | null;
+  symmetric: boolean;
+  primary: boolean;
+  acyclic?: boolean;
+  category: string;
+  subjects: Kind[];
+  objects: Kind[];
 }[] = [
-  { code: "parent_of", label: "Là cha/mẹ của", inverse: "child_of", symmetric: false, primary: true, acyclic: true, category: "family", subjects: ["person"], objects: ["person"] },
-  { code: "child_of", label: "Là con của", inverse: "parent_of", symmetric: false, primary: false, category: "family", subjects: ["person"], objects: ["person"] },
-  { code: "spouse_of", label: "Là vợ/chồng của", inverse: null, symmetric: true, primary: true, category: "family", subjects: ["person"], objects: ["person"] },
-  { code: "sibling_of", label: "Là anh chị em của", inverse: null, symmetric: true, primary: true, category: "family", subjects: ["person"], objects: ["person"] },
-  { code: "successor_of", label: "Kế vị", inverse: "predecessor_of", symmetric: false, primary: true, category: "politics", subjects: ["person"], objects: ["person"] },
-  { code: "predecessor_of", label: "Tiền nhiệm của", inverse: "successor_of", symmetric: false, primary: false, category: "politics", subjects: ["person"], objects: ["person"] },
-  { code: "teacher_of", label: "Là thầy của", inverse: "student_of", symmetric: false, primary: true, category: "personal", subjects: ["person"], objects: ["person"] },
-  { code: "student_of", label: "Là học trò của", inverse: "teacher_of", symmetric: false, primary: false, category: "personal", subjects: ["person"], objects: ["person"] },
-  { code: "friend_of", label: "Là bạn của", inverse: null, symmetric: true, primary: true, category: "personal", subjects: ["person"], objects: ["person"] },
-  { code: "ally_of", label: "Là đồng minh của", inverse: null, symmetric: true, primary: true, category: "politics", subjects: ["person", "polity"], objects: ["person", "polity"] },
-  { code: "rival_of", label: "Là đối thủ của", inverse: null, symmetric: true, primary: true, category: "politics", subjects: ["person", "polity"], objects: ["person", "polity"] },
-  { code: "founder_of", label: "Là người sáng lập", inverse: "founded_by", symmetric: false, primary: true, category: "politics", subjects: ["person"], objects: ["polity"] },
-  { code: "founded_by", label: "Được sáng lập bởi", inverse: "founder_of", symmetric: false, primary: false, category: "politics", subjects: ["polity"], objects: ["person"] },
-  { code: "succeeded_by", label: "Được kế tục bởi", inverse: "succeeds", symmetric: false, primary: true, category: "politics", subjects: ["polity"], objects: ["polity"] },
-  { code: "succeeds", label: "Kế tục", inverse: "succeeded_by", symmetric: false, primary: false, category: "politics", subjects: ["polity"], objects: ["polity"] },
-  { code: "split_from", label: "Tách ra từ", inverse: "split_into", symmetric: false, primary: true, category: "politics", subjects: ["polity"], objects: ["polity"] },
-  { code: "split_into", label: "Tách thành", inverse: "split_from", symmetric: false, primary: false, category: "politics", subjects: ["polity"], objects: ["polity"] },
-  { code: "vassal_of", label: "Là chư hầu của", inverse: "suzerain_of", symmetric: false, primary: true, category: "politics", subjects: ["polity"], objects: ["polity"] },
-  { code: "suzerain_of", label: "Là tông chủ của", inverse: "vassal_of", symmetric: false, primary: false, category: "politics", subjects: ["polity"], objects: ["polity"] },
-  { code: "conquered", label: "Đã chinh phục", inverse: "conquered_by", symmetric: false, primary: true, category: "politics", subjects: ["polity"], objects: ["polity"] },
-  { code: "conquered_by", label: "Bị chinh phục bởi", inverse: "conquered", symmetric: false, primary: false, category: "politics", subjects: ["polity"], objects: ["polity"] },
+  {
+    code: "parent_of",
+    label: "Là cha/mẹ của",
+    inverse: "child_of",
+    symmetric: false,
+    primary: true,
+    acyclic: true,
+    category: "family",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "child_of",
+    label: "Là con của",
+    inverse: "parent_of",
+    symmetric: false,
+    primary: false,
+    category: "family",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "spouse_of",
+    label: "Là vợ/chồng của",
+    inverse: null,
+    symmetric: true,
+    primary: true,
+    category: "family",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "sibling_of",
+    label: "Là anh chị em của",
+    inverse: null,
+    symmetric: true,
+    primary: true,
+    category: "family",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "successor_of",
+    label: "Kế vị",
+    inverse: "predecessor_of",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "predecessor_of",
+    label: "Tiền nhiệm của",
+    inverse: "successor_of",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "teacher_of",
+    label: "Là thầy của",
+    inverse: "student_of",
+    symmetric: false,
+    primary: true,
+    category: "personal",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "student_of",
+    label: "Là học trò của",
+    inverse: "teacher_of",
+    symmetric: false,
+    primary: false,
+    category: "personal",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "friend_of",
+    label: "Là bạn của",
+    inverse: null,
+    symmetric: true,
+    primary: true,
+    category: "personal",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "ally_of",
+    label: "Là đồng minh của",
+    inverse: null,
+    symmetric: true,
+    primary: true,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
+  {
+    code: "rival_of",
+    label: "Là đối thủ của",
+    inverse: null,
+    symmetric: true,
+    primary: true,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
+  {
+    code: "founder_of",
+    label: "Là người sáng lập",
+    inverse: "founded_by",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["polity"],
+  },
+  {
+    code: "founded_by",
+    label: "Được sáng lập bởi",
+    inverse: "founder_of",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["person"],
+  },
+  {
+    code: "succeeded_by",
+    label: "Được kế tục bởi",
+    inverse: "succeeds",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
+  {
+    code: "succeeds",
+    label: "Kế tục",
+    inverse: "succeeded_by",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
+  {
+    code: "split_from",
+    label: "Tách ra từ",
+    inverse: "split_into",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
+  {
+    code: "split_into",
+    label: "Tách thành",
+    inverse: "split_from",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
+  {
+    code: "vassal_of",
+    label: "Là chư hầu của",
+    inverse: "suzerain_of",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
+  {
+    code: "suzerain_of",
+    label: "Là tông chủ của",
+    inverse: "vassal_of",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
+  {
+    code: "conquered",
+    label: "Đã chinh phục",
+    inverse: "conquered_by",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
+  {
+    code: "conquered_by",
+    label: "Bị chinh phục bởi",
+    inverse: "conquered",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["polity"],
+    objects: ["polity"],
+  },
 ];
 const attributeTypes = {
   hometown: "Quê quán",
@@ -94,19 +291,44 @@ const addLabels = (namespace: string, map: Record<string, string>) => {
   for (const [code, text] of Object.entries(map)) labelRows.push({ namespace, code, text });
 };
 
-await db.insert(kg.language).values([
-  { code: "vi", name: "Tiếng Việt" },
-  { code: "zh", name: "Tiếng Trung" },
-  { code: "en", name: "Tiếng Anh" },
-]).onConflictDoNothing();
-await db.insert(kg.nodeKind).values(nodeKinds.map((code) => ({ code }))).onConflictDoNothing();
-await db.insert(kg.nameKind).values(Object.keys(nameKinds).map((code) => ({ code }))).onConflictDoNothing();
-await db.insert(kg.calendar).values(Object.entries(calendars).map(([code, name]) => ({ code, name }))).onConflictDoNothing();
-await db.insert(history.polityType).values(Object.keys(polityTypes).map((code) => ({ code }))).onConflictDoNothing();
-await db.insert(history.officeType).values(
-  Object.entries(officeTypes).map(([code, o]) => ({ code, category: o.category, isSovereign: o.isSovereign })),
-).onConflictDoNothing();
-await db.insert(history.successionMode).values(Object.keys(successionModes).map((code) => ({ code }))).onConflictDoNothing();
+await db
+  .insert(kg.language)
+  .values([
+    { code: "vi", name: "Tiếng Việt" },
+    { code: "zh", name: "Tiếng Trung" },
+    { code: "en", name: "Tiếng Anh" },
+  ])
+  .onConflictDoNothing();
+await db
+  .insert(kg.nodeKind)
+  .values(nodeKinds.map((code) => ({ code })))
+  .onConflictDoNothing();
+await db
+  .insert(kg.nameKind)
+  .values(Object.keys(nameKinds).map((code) => ({ code })))
+  .onConflictDoNothing();
+await db
+  .insert(kg.calendar)
+  .values(Object.entries(calendars).map(([code, name]) => ({ code, name })))
+  .onConflictDoNothing();
+await db
+  .insert(history.polityType)
+  .values(Object.keys(polityTypes).map((code) => ({ code })))
+  .onConflictDoNothing();
+await db
+  .insert(history.officeType)
+  .values(
+    Object.entries(officeTypes).map(([code, o]) => ({
+      code,
+      category: o.category,
+      isSovereign: o.isSovereign,
+    })),
+  )
+  .onConflictDoNothing();
+await db
+  .insert(history.successionMode)
+  .values(Object.keys(successionModes).map((code) => ({ code })))
+  .onConflictDoNothing();
 for (const r of relationTypes) {
   const row = {
     code: r.code,
@@ -118,13 +340,22 @@ for (const r of relationTypes) {
     subjectKinds: r.subjects,
     objectKinds: r.objects,
   };
-  await db.insert(kg.relationType).values(row).onConflictDoUpdate({ target: kg.relationType.code, set: row });
+  await db
+    .insert(kg.relationType)
+    .values(row)
+    .onConflictDoUpdate({ target: kg.relationType.code, set: row });
 }
-await db.insert(kg.attributeType).values(Object.keys(attributeTypes).map((code) => ({ code }))).onConflictDoNothing();
+await db
+  .insert(kg.attributeType)
+  .values(Object.keys(attributeTypes).map((code) => ({ code })))
+  .onConflictDoNothing();
 
 addLabels("name_kind", nameKinds);
 addLabels("polity_type", polityTypes);
-addLabels("office_type", Object.fromEntries(Object.entries(officeTypes).map(([c, o]) => [c, o.label])));
+addLabels(
+  "office_type",
+  Object.fromEntries(Object.entries(officeTypes).map(([c, o]) => [c, o.label])),
+);
 addLabels("succession_mode", successionModes);
 addLabels("relation_type", Object.fromEntries(relationTypes.map((r) => [r.code, r.label])));
 addLabels("attribute_type", attributeTypes);

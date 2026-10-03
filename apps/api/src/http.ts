@@ -24,10 +24,13 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
   // Postgres errors: 23503 = foreign key violation, 23505 = unique violation.
-  const code = (err as { code?: string; cause?: { code?: string } })?.code
-    ?? (err as { cause?: { code?: string } })?.cause?.code;
+  const code =
+    (err as { code?: string; cause?: { code?: string } })?.code ??
+    (err as { cause?: { code?: string } })?.cause?.code;
   if (code === "23503") {
-    res.status(409).json({ error: "Không thể xoá hoặc lưu vì còn dữ liệu khác đang liên kết tới mục này" });
+    res
+      .status(409)
+      .json({ error: "Không thể xoá hoặc lưu vì còn dữ liệu khác đang liên kết tới mục này" });
     return;
   }
   if (code === "23505") {

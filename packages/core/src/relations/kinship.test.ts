@@ -1,13 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { describeKinship, kinshipSentence, type KinPerson, type ParentLink, type Sex } from "./kinship";
+import {
+  describeKinship,
+  kinshipSentence,
+  type KinPerson,
+  type ParentLink,
+  type Sex,
+} from "./kinship";
 
 // Golden cases for the Vietnamese kinship terms (design doc section 7.7). The tree below is the
 // early Hậu Lê royal line, plus invented relatives to cover the uncle / cousin / far cases.
 const people = new Map<string, KinPerson>();
-const person = (id: string, sex: Sex, birthYear: number | null = null) => people.set(id, { id, sex, birthYear });
+const person = (id: string, sex: Sex, birthYear: number | null = null) =>
+  people.set(id, { id, sex, birthYear });
 const links: ParentLink[] = [];
-const parent = (parentId: string, childId: string, variant: string | null = "biological", disputed = false) =>
-  links.push({ parentId, childId, variant, disputed });
+const parent = (
+  parentId: string,
+  childId: string,
+  variant: string | null = "biological",
+  disputed = false,
+) => links.push({ parentId, childId, variant, disputed });
 
 person("loi", "male", 1385);
 person("thai-tong", "male", 1423);
@@ -43,14 +54,17 @@ parent("p-elder", "cousin-older");
 for (const c of ["mother", "m-brother", "m-sister"]) parent("mother-line-g", c);
 parent("m-brother", "a-mom-side-cousin");
 
-const kin = (a: string, b: string, opts?: { includeDisputed?: boolean }) => describeKinship(a, b, people, links, opts);
+const kin = (a: string, b: string, opts?: { includeDisputed?: boolean }) =>
+  describeKinship(a, b, people, links, opts);
 
 describe("lineal relatives", () => {
   it("Lê Lợi is the paternal grandfather of Lê Thánh Tông", () => {
     const k = kin("loi", "thanh-tong")!;
     expect(k.aIs).toBe("ông nội");
     expect(k.bIs).toBe("cháu nội");
-    expect(kinshipSentence("Lê Lợi", "Lê Thánh Tông", k)).toBe("Lê Lợi là ông nội của Lê Thánh Tông");
+    expect(kinshipSentence("Lê Lợi", "Lê Thánh Tông", k)).toBe(
+      "Lê Lợi là ông nội của Lê Thánh Tông",
+    );
   });
 
   it("parent and child", () => {
@@ -72,7 +86,8 @@ describe("lineal relatives", () => {
     const l: ParentLink[] = [];
     const ids = ["t0", "t1", "t2", "t3", "t4", "t5"];
     ids.forEach((id) => chain.set(id, { id, sex: "male", birthYear: null }));
-    for (let i = 0; i < 5; i++) l.push({ parentId: ids[i]!, childId: ids[i + 1]!, variant: "biological", disputed: false });
+    for (let i = 0; i < 5; i++)
+      l.push({ parentId: ids[i]!, childId: ids[i + 1]!, variant: "biological", disputed: false });
     expect(describeKinship("t0", "t3", chain, l)!.aIs).toBe("cụ ông bên nội");
     expect(describeKinship("t0", "t4", chain, l)!.aIs).toBe("kỵ bên nội");
     const far = describeKinship("t0", "t5", chain, l)!;
@@ -123,7 +138,14 @@ describe("collateral relatives", () => {
     const l: ParentLink[] = [];
     const add = (id: string, sex: Sex = "male") => tree.set(id, { id, sex, birthYear: null });
     ["root", "x1", "x2", "x3", "y1", "y2", "y3"].forEach((id) => add(id));
-    for (const [p, c] of [["root", "x1"], ["x1", "x2"], ["x2", "x3"], ["root", "y1"], ["y1", "y2"], ["y2", "y3"]]) {
+    for (const [p, c] of [
+      ["root", "x1"],
+      ["x1", "x2"],
+      ["x2", "x3"],
+      ["root", "y1"],
+      ["y1", "y2"],
+      ["y2", "y3"],
+    ]) {
       l.push({ parentId: p!, childId: c!, variant: "biological", disputed: false });
     }
     const k = describeKinship("x3", "y3", tree, l)!;
@@ -146,10 +168,15 @@ describe("edge cases", () => {
   });
 
   it("disputed parentage is ignored unless requested", () => {
-    const disputed = [...links, { parentId: "loi", childId: "a", variant: "biological", disputed: true }];
+    const disputed = [
+      ...links,
+      { parentId: "loi", childId: "a", variant: "biological", disputed: true },
+    ];
     expect(describeKinship("loi", "a", people, links)).toBeNull();
     expect(describeKinship("loi", "a", people, disputed)).toBeNull();
-    expect(describeKinship("loi", "a", people, disputed, { includeDisputed: true })!.aIs).toBe("cha");
+    expect(describeKinship("loi", "a", people, disputed, { includeDisputed: true })!.aIs).toBe(
+      "cha",
+    );
   });
 
   it("adoptive parentage is flagged; step-parents are not blood", () => {

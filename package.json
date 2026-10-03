@@ -1,6 +1,7 @@
 {
   "name": "lineagraph",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@12.4.1",
   "scripts": {
     "dev:api": "pnpm --filter @lineagraph/api dev",
@@ -13,6 +14,25 @@
     "db:create-admin": "pnpm --filter @lineagraph/core db:create-admin",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @lineagraph/core test"
+    "test": "pnpm --filter @lineagraph/core test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "eslint": "^9.29.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-prettier": "^5.5.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^15.15.0",
+    "prettier": "^3.6.2",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "typescript-eslint": "^8.34.1"
   }
 }

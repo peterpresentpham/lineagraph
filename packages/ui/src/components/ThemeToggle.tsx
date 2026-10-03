@@ -20,8 +20,10 @@ function apply(theme: Theme) {
   else root.setAttribute("data-theme", theme);
 }
 
+type Props = { className?: string };
+
 // Cycles system -> light -> dark. "system" follows the OS (prefers-color-scheme).
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({ className }: Props) {
   const [theme, setTheme] = useState<Theme>("system");
 
   useEffect(() => {

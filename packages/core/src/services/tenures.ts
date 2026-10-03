@@ -13,8 +13,15 @@ export async function listTenures(opts: { personId?: string; polityId?: string }
       ? sql`t.polity_id = ${opts.polityId}`
       : sql`true`;
   const rows = await db.execute<{
-    id: string; person_id: string; person_name: string; polity_id: string | null; polity_name: string | null;
-    office_type: string; start_edtf: string | null; end_edtf: string | null; seq: number | null;
+    id: string;
+    person_id: string;
+    person_name: string;
+    polity_id: string | null;
+    polity_name: string | null;
+    office_type: string;
+    start_edtf: string | null;
+    end_edtf: string | null;
+    seq: number | null;
   }>(
     sql`select t.id, t.person_id, pm.name as person_name, t.polity_id, qm.name as polity_name, t.office_type,
                sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq
@@ -41,8 +48,14 @@ export async function listTenures(opts: { personId?: string; polityId?: string }
 
 export async function getTenureForEdit(id: string) {
   const [row] = await db.execute<{
-    id: string; person_id: string; polity_id: string | null; office_type: string;
-    succession_mode: string | null; seq: number | null; start_edtf: string | null; end_edtf: string | null;
+    id: string;
+    person_id: string;
+    polity_id: string | null;
+    office_type: string;
+    succession_mode: string | null;
+    seq: number | null;
+    start_edtf: string | null;
+    end_edtf: string | null;
   }>(
     sql`select t.id, t.person_id, t.polity_id, t.office_type, t.succession_mode, t.seq,
                sd.edtf as start_edtf, ed.edtf as end_edtf
@@ -52,7 +65,11 @@ export async function getTenureForEdit(id: string) {
         where t.id = ${id}`,
   );
   if (!row) throw notFound("nhiệm kỳ");
-  const eras = await db.execute<{ name: string; start_edtf: string | null; end_edtf: string | null }>(
+  const eras = await db.execute<{
+    name: string;
+    start_edtf: string | null;
+    end_edtf: string | null;
+  }>(
     sql`select e.name, sd.edtf as start_edtf, ed.edtf as end_edtf
         from history.tenure_era e
         left join kg.fuzzy_date sd on sd.id = e.start_id
@@ -68,7 +85,11 @@ export async function getTenureForEdit(id: string) {
     seq: row.seq,
     start: parseDate(row.start_edtf),
     end: parseDate(row.end_edtf),
-    eras: eras.map((e) => ({ name: e.name, start: parseDate(e.start_edtf), end: parseDate(e.end_edtf) })),
+    eras: eras.map((e) => ({
+      name: e.name,
+      start: parseDate(e.start_edtf),
+      end: parseDate(e.end_edtf),
+    })),
   };
 }
 
@@ -86,7 +107,10 @@ async function writeEras(tx: Tx, tenureId: string, eras: TenureInput["eras"]) {
 async function removeEras(tx: Tx, tenureId: string) {
   const old = await tx.select().from(tenureEra).where(eq(tenureEra.tenureId, tenureId));
   await tx.delete(tenureEra).where(eq(tenureEra.tenureId, tenureId));
-  await deleteDates(tx, old.flatMap((e) => [e.startId, e.endId]));
+  await deleteDates(
+    tx,
+    old.flatMap((e) => [e.startId, e.endId]),
+  );
 }
 
 export async function createTenure(input: TenureInput) {
@@ -142,4 +166,3 @@ export async function deleteTenure(id: string) {
     await deleteDates(tx, [old!.startId, old!.endId]);
   });
 }
-

@@ -1,0 +1,10 @@
+node_modules
+**/dist
+**/.next
+**/coverage
+pnpm-lock.yaml
+packages/core/drizzle
+apps/web/next-env.d.ts
+apps/web/AGENTS.md
+docs
+*.sql

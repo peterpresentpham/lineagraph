@@ -16,7 +16,10 @@ const loginLimiter = rateLimit({
   message: { error: "Thử đăng nhập quá nhiều lần, vui lòng đợi 15 phút" },
 });
 
-const loginInput = z.object({ email: z.string().trim().toLowerCase().email("Email không hợp lệ"), password: z.string().min(1, "Nhập mật khẩu") });
+const loginInput = z.object({
+  email: z.string().trim().toLowerCase().email("Email không hợp lệ"),
+  password: z.string().min(1, "Nhập mật khẩu"),
+});
 
 // Same message for unknown email and wrong password, so the response never reveals which emails exist.
 const badCredentials = { error: "Email hoặc mật khẩu không đúng" };

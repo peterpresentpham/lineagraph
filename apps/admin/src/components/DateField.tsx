@@ -4,22 +4,29 @@ import { Field } from "./Field";
 
 const toNumber = (value: string) => (value === "" ? null : Number(value));
 
-// Year is required for a date to exist; month and day are optional (fuzzy dates).
-export function DateField({
-  label,
-  value,
-  onChange,
-}: {
+type Props = {
   label: string;
   value: DateInput | null;
   onChange: (value: DateInput | null) => void;
-}) {
+};
+
+// Year is required for a date to exist; month and day are optional (fuzzy dates).
+export function DateField({ label, value, onChange }: Props) {
   const update = (patch: Partial<DateInput>) => {
-    const next = { year: value?.year ?? NaN, month: value?.month ?? null, day: value?.day ?? null, approximate: value?.approximate ?? false, ...patch };
+    const next = {
+      year: value?.year ?? NaN,
+      month: value?.month ?? null,
+      day: value?.day ?? null,
+      approximate: value?.approximate ?? false,
+      ...patch,
+    };
     onChange(Number.isNaN(next.year) && !next.month && !next.day ? null : next);
   };
   return (
-    <Field label={label} hint="Chỉ nhập năm nếu không rõ ngày tháng. Năm trước Công nguyên nhập số âm.">
+    <Field
+      label={label}
+      hint="Chỉ nhập năm nếu không rõ ngày tháng. Năm trước Công nguyên nhập số âm."
+    >
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="number"

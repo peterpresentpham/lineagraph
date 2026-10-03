@@ -12,7 +12,11 @@ export async function createSource(input: SourceInput) {
 }
 
 export async function updateSource(id: string, input: SourceInput) {
-  const rows = await db.update(source).set(input).where(eq(source.id, id)).returning({ id: source.id });
+  const rows = await db
+    .update(source)
+    .set(input)
+    .where(eq(source.id, id))
+    .returning({ id: source.id });
   if (!rows.length) throw notFound("nguồn");
 }
 

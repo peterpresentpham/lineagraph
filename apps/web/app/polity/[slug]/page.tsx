@@ -11,7 +11,13 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const polity = await apiGet<PolityDetail>(`/polities/${(await params).slug}`);
-  return { title: polity.name, description: polity.summary ?? undefined };
+  const description = polity.summary ?? `${polity.name} trong lịch sử Việt Nam.`;
+  return {
+    title: polity.name,
+    description,
+    openGraph: { title: polity.name, description, type: "website" },
+    twitter: { title: polity.name, description },
+  };
 }
 
 export default async function PolityPage({ params }: Props) {
@@ -28,12 +34,18 @@ export default async function PolityPage({ params }: Props) {
   return (
     <>
       <h1 className="text-3xl">{polity.name}</h1>
-      <p className="mt-1 text-muted-foreground">
-        {polity.started || polity.ended ? `${polity.started?.label ?? "?"} – ${polity.ended?.label ?? "?"}` : "Chưa rõ thời gian"}
+      <p className="text-muted-foreground mt-1">
+        {polity.started || polity.ended
+          ? `${polity.started?.label ?? "?"} – ${polity.ended?.label ?? "?"}`
+          : "Chưa rõ thời gian"}
       </p>
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Badge variant="neutral">{typeLabels[polity.polityType] ?? polity.polityType}</Badge>
-        {otherNames.map((n, i) => <Badge key={i} variant="outline">{n.name}</Badge>)}
+        {otherNames.map((n, i) => (
+          <Badge key={i} variant="outline">
+            {n.name}
+          </Badge>
+        ))}
       </div>
 
       {polity.summary && (
@@ -70,21 +82,28 @@ export default async function PolityPage({ params }: Props) {
         ) : (
           <ol className="flex flex-col gap-2">
             {polity.tenures.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border bg-card p-4">
+              <li
+                key={t.id}
+                className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border p-4"
+              >
                 <div className="flex items-center gap-3">
                   {t.seq != null && (
-                    <span className="grid size-8 place-items-center rounded-md bg-accent text-sm font-semibold">{t.seq}</span>
+                    <span className="bg-accent grid size-8 place-items-center rounded-md text-sm font-semibold">
+                      {t.seq}
+                    </span>
                   )}
                   <div>
-                    <Link href={`/person/${t.person.slug}`} className="font-semibold">{t.person.name}</Link>
-                    <div className="text-sm text-muted-foreground">
+                    <Link href={`/person/${t.person.slug}`} className="font-semibold">
+                      {t.person.name}
+                    </Link>
+                    <div className="text-muted-foreground text-sm">
                       {offices[t.officeType] ?? t.officeType}
                       {t.successionMode && ` · ${modes[t.successionMode] ?? t.successionMode}`}
                       {t.eras.length > 0 && ` · Niên hiệu: ${t.eras.join(", ")}`}
                     </div>
                   </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-muted-foreground text-sm">
                   {t.start || t.end ? `${t.start?.label ?? "?"} – ${t.end?.label ?? "?"}` : ""}
                 </div>
               </li>

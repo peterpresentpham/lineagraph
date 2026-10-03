@@ -1,15 +1,23 @@
 import type { ReactNode } from "react";
 
-export function Section({ title, children }: { title: string; children: ReactNode }) {
+type SectionProps = { title: string; children: ReactNode };
+
+export function Section({ title, children }: SectionProps) {
   return (
     <section className="mt-8">
       <h2>{title}</h2>
-      <div className="rule-gold mt-2 mb-4" />
+      <div className="rule-gold mb-4 mt-2" />
       {children}
     </section>
   );
 }
 
-export function Empty({ children }: { children: ReactNode }) {
-  return <p className="rounded-[var(--radius)] border border-dashed p-6 text-center text-muted-foreground">{children}</p>;
+type EmptyProps = { children: ReactNode };
+
+export function Empty({ children }: EmptyProps) {
+  return (
+    <p className="text-muted-foreground rounded-[var(--radius)] border border-dashed p-6 text-center">
+      {children}
+    </p>
+  );
 }

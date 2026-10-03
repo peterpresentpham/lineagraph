@@ -54,7 +54,11 @@ export async function deleteDates(tx: Tx, ids: (string | null)[]) {
   if (real.length) await tx.delete(fuzzyDate).where(inArray(fuzzyDate.id, real));
 }
 
-export async function replaceDate(tx: Tx, oldId: string | null, input: DateInput | null | undefined) {
+export async function replaceDate(
+  tx: Tx,
+  oldId: string | null,
+  input: DateInput | null | undefined,
+) {
   return { oldId, newId: await insertDate(tx, input) };
 }
 
@@ -85,6 +89,9 @@ export function parseDate(edtf: string | null): DateView | null {
 
 export async function getDateEdtf(tx: Tx, id: string | null) {
   if (!id) return null;
-  const [row] = await tx.select({ edtf: fuzzyDate.edtf }).from(fuzzyDate).where(eq(fuzzyDate.id, id));
+  const [row] = await tx
+    .select({ edtf: fuzzyDate.edtf })
+    .from(fuzzyDate)
+    .where(eq(fuzzyDate.id, id));
   return parseDate(row?.edtf ?? null);
 }

@@ -8,7 +8,11 @@ import { renderNodeLink } from "./GraphClient";
 
 const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoGraph), {
   ssr: false,
-  loading: () => <div className="grid h-96 place-items-center rounded-md border text-muted-foreground">Đang dựng sơ đồ...</div>,
+  loading: () => (
+    <div className="text-muted-foreground grid h-96 place-items-center rounded-md border">
+      Đang dựng sơ đồ...
+    </div>
+  ),
 });
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
@@ -19,21 +23,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+type Props = { initial?: { slug: string; name: string } };
+
 // Pick someone, see the people around them, grow the picture on demand.
-export function GraphExplorer({ initial }: { initial?: { slug: string; name: string } }) {
+export function GraphExplorer({ initial }: Props) {
   const [node, setNode] = useState(initial ?? null);
   const [pickerKey, setPickerKey] = useState(0);
 
-  const api = useMemo<EgoApi>(() => ({
-    graph: (root, o) =>
-      request(`/nodes/${encodeURIComponent(root)}/graph?depth=${o.depth}&limit=${o.limit}&disputed=${o.includeDisputed ? 1 : 0}`),
-    expand: (nodeId, known, o) =>
-      request("/graph/expand", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ nodeId, known, limit: o.limit, includeDisputed: o.includeDisputed }),
-      }),
-  }), []);
+  const api = useMemo<EgoApi>(
+    () => ({
+      graph: (root, o) =>
+        request(
+          `/nodes/${encodeURIComponent(root)}/graph?depth=${o.depth}&limit=${o.limit}&disputed=${o.includeDisputed ? 1 : 0}`,
+        ),
+      expand: (nodeId, known, o) =>
+        request("/graph/expand", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            nodeId,
+            known,
+            limit: o.limit,
+            includeDisputed: o.includeDisputed,
+          }),
+        }),
+    }),
+    [],
+  );
 
   const follow = (slug: string, name: string) => {
     setNode({ slug, name });
@@ -57,9 +73,14 @@ export function GraphExplorer({ initial }: { initial?: { slug: string; name: str
       </div>
       <div className="mt-6">
         {node ? (
-          <EgoGraph root={node.slug} api={api} renderLink={renderNodeLink} onRootChange={onRecenter} />
+          <EgoGraph
+            root={node.slug}
+            api={api}
+            renderLink={renderNodeLink}
+            onRootChange={onRecenter}
+          />
         ) : (
-          <p className="rounded-md border border-dashed p-10 text-center text-muted-foreground">
+          <p className="text-muted-foreground rounded-md border border-dashed p-10 text-center">
             Chọn một nhân vật hoặc chính thể để xem sơ đồ những người liên quan.
           </p>
         )}

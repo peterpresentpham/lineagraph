@@ -73,7 +73,10 @@ export async function listPersons(opts: { q?: string; limit?: number; offset?: n
 export async function getPersonSummaries(ids: string[]) {
   if (!ids.length) return [];
   const rows = await db.execute<SummaryRow>(
-    sql`${summarySelect} and n.id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`,
+    sql`${summarySelect} and n.id in (${sql.join(
+      ids.map((id) => sql`${id}::uuid`),
+      sql`, `,
+    )})`,
   );
   return rows.map(summaryFrom);
 }
@@ -101,7 +104,12 @@ export async function getPerson(slugOrId: string) {
     .select({ sex: person.sex, historicity: person.historicity, summary: person.summary })
     .from(person)
     .where(eq(person.id, id));
-  const names = await db.execute<{ name: string; kind: string; language: string | null; is_primary: boolean }>(
+  const names = await db.execute<{
+    name: string;
+    kind: string;
+    language: string | null;
+    is_primary: boolean;
+  }>(
     sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
   );
 
@@ -123,8 +131,14 @@ export async function getPerson(slugOrId: string) {
   const siblings = await getPersonSummaries(siblingIds.map((r) => r.id));
 
   const tenureRows = await db.execute<{
-    id: string; polity_id: string | null; polity_slug: string | null; polity_name: string | null;
-    office_type: string; start_edtf: string | null; end_edtf: string | null; seq: number | null;
+    id: string;
+    polity_id: string | null;
+    polity_slug: string | null;
+    polity_name: string | null;
+    office_type: string;
+    start_edtf: string | null;
+    end_edtf: string | null;
+    seq: number | null;
   }>(
     sql`select t.id, t.polity_id, pn.slug as polity_slug, pm.name as polity_name, t.office_type,
                sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq
@@ -142,7 +156,12 @@ export async function getPerson(slugOrId: string) {
     sex: meta!.sex,
     historicity: meta!.historicity,
     summary: meta!.summary,
-    names: names.map((n) => ({ name: n.name, kind: n.kind, language: n.language, isPrimary: n.is_primary })),
+    names: names.map((n) => ({
+      name: n.name,
+      kind: n.kind,
+      language: n.language,
+      isPrimary: n.is_primary,
+    })),
     body: bodyRow?.body ?? null,
     attributes: attributes.map((a) => ({ type: a.type, label: a.label ?? a.type, value: a.value })),
     relations,
@@ -179,9 +198,17 @@ async function setPersonDates(tx: Tx, personId: string, input: PersonInput) {
     .select({ dateId: personDate.dateId })
     .from(personDate)
     .where(and(eq(personDate.personId, personId), inArray(personDate.kind, ["birth", "death"])));
-  await tx.delete(personDate).where(and(eq(personDate.personId, personId), inArray(personDate.kind, ["birth", "death"])));
-  await deleteDates(tx, old.map((o) => o.dateId));
-  for (const [kind, value] of [["birth", input.birth], ["death", input.death]] as const) {
+  await tx
+    .delete(personDate)
+    .where(and(eq(personDate.personId, personId), inArray(personDate.kind, ["birth", "death"])));
+  await deleteDates(
+    tx,
+    old.map((o) => o.dateId),
+  );
+  for (const [kind, value] of [
+    ["birth", input.birth],
+    ["death", input.death],
+  ] as const) {
     const dateId = await insertDate(tx, value);
     if (dateId) await tx.insert(personDate).values({ personId, kind, dateId, isPreferred: true });
   }
@@ -219,4 +246,3 @@ export async function deletePerson(id: string) {
   await resolveId(id);
   await db.transaction((tx) => softDeleteNode(tx, id));
 }
-

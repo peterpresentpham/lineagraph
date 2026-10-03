@@ -1,6 +1,13 @@
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import {
-  BookOpen, GitFork, Landmark, LayoutDashboard, LogOut, Network, Settings2, Users,
+  BookOpen,
+  GitFork,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  Network,
+  Settings2,
+  Users,
 } from "lucide-react";
 import { Button, ThemeToggle, cn } from "@lineagraph/ui";
 import { useAuth } from "../lib/auth";
@@ -22,20 +29,25 @@ export function Layout() {
 
   const navLinkClass = (isActive: boolean) =>
     cn(
-      "flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+      "text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-sm font-medium transition-colors",
       isActive && "bg-accent text-foreground",
     );
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-card p-3 md:flex">
-        <div className="px-2 pt-2 pb-5">
+      <aside className="bg-card sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r p-3 md:flex">
+        <div className="px-2 pb-5 pt-2">
           <div className="font-serif text-lg font-semibold">Sử Phả</div>
-          <div className="text-xs text-muted-foreground">Quản trị</div>
+          <div className="text-muted-foreground text-xs">Quản trị</div>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5">
           {nav.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) => navLinkClass(isActive)}>
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) => navLinkClass(isActive)}
+            >
               <Icon className="size-4" />
               {label}
             </NavLink>
@@ -44,15 +56,23 @@ export function Layout() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-t-[3px] border-t-primary border-b bg-card/95 backdrop-blur">
+        <header className="border-t-primary bg-card/95 sticky top-0 z-30 border-b border-t-[3px] backdrop-blur">
           <div className="flex h-14 items-center justify-between gap-3 px-4 md:px-8">
             <span className="font-serif text-lg font-semibold md:hidden">Sử Phả</span>
-            <span className="hidden text-sm text-muted-foreground md:block">Trang quản trị</span>
+            <span className="text-muted-foreground hidden text-sm md:block">Trang quản trị</span>
             <div className="flex items-center gap-1">
               <ThemeToggle />
-              <span className="mx-2 hidden h-5 w-px bg-border sm:block" />
-              <span className="hidden max-w-48 truncate text-sm text-muted-foreground sm:block">{email}</span>
-              <Button variant="ghost" size="sm" onClick={logout} title="Đăng xuất" aria-label="Đăng xuất">
+              <span className="bg-border mx-2 hidden h-5 w-px sm:block" />
+              <span className="text-muted-foreground hidden max-w-48 truncate text-sm sm:block">
+                {email}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                title="Đăng xuất"
+                aria-label="Đăng xuất"
+              >
                 <LogOut />
                 <span className="hidden text-xs sm:inline">Đăng xuất</span>
               </Button>
@@ -66,7 +86,10 @@ export function Layout() {
                 to={to}
                 end={end}
                 className={({ isActive }) =>
-                  cn("shrink-0 rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground", isActive && "bg-accent text-foreground")
+                  cn(
+                    "text-muted-foreground shrink-0 rounded-sm px-3 py-1.5 text-sm font-medium",
+                    isActive && "bg-accent text-foreground",
+                  )
                 }
               >
                 {label}

@@ -1,7 +1,3 @@
-// Pure breadth-first expansion for "ego graphs": everything around one node, closest first,
-// capped at a node limit. Which neighbours survive a cut depends on how the link is ranked
-// (family first, then politics, then everything else), then on discovery order.
-
 export type EgoLink = { a: string; b: string; rank: number };
 
 export type EgoOptions = {
@@ -16,7 +12,13 @@ export type EgoOptions = {
 
 export type EgoResult = { added: string[]; truncated: boolean };
 
-export async function egoBfs({ rootIds, known = new Set(), depth, limit, fetchLinks }: EgoOptions): Promise<EgoResult> {
+export async function egoBfs({
+  rootIds,
+  known = new Set(),
+  depth,
+  limit,
+  fetchLinks,
+}: EgoOptions): Promise<EgoResult> {
   const seen = new Set<string>([...known, ...rootIds]);
   const added: string[] = [];
   let frontier = [...rootIds];
@@ -28,7 +30,10 @@ export async function egoBfs({ rootIds, known = new Set(), depth, limit, fetchLi
     // Best (lowest) rank at which each unseen node is reached, in discovery order.
     const candidates = new Map<string, number>();
     for (const l of links) {
-      for (const [from, to] of [[l.a, l.b], [l.b, l.a]] as const) {
+      for (const [from, to] of [
+        [l.a, l.b],
+        [l.b, l.a],
+      ] as const) {
         if (!inFrontier.has(from) || seen.has(to)) continue;
         const best = candidates.get(to);
         if (best === undefined || l.rank < best) candidates.set(to, l.rank);
@@ -52,7 +57,10 @@ export async function egoBfs({ rootIds, known = new Set(), depth, limit, fetchLi
 export function countHidden(ids: ReadonlySet<string>, links: EgoLink[]): Map<string, number> {
   const outside = new Map<string, Set<string>>();
   for (const l of links) {
-    for (const [from, to] of [[l.a, l.b], [l.b, l.a]] as const) {
+    for (const [from, to] of [
+      [l.a, l.b],
+      [l.b, l.a],
+    ] as const) {
       if (!ids.has(from) || ids.has(to)) continue;
       const set = outside.get(from) ?? new Set<string>();
       set.add(to);

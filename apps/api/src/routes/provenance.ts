@@ -1,7 +1,14 @@
 import { Router } from "express";
 import {
-  citationInput, createCitation, createSource, deleteCitation, deleteSource,
-  listCitations, listSources, sourceInput, updateSource,
+  citationInput,
+  createCitation,
+  createSource,
+  deleteCitation,
+  deleteSource,
+  listCitations,
+  listSources,
+  sourceInput,
+  updateSource,
 } from "@lineagraph/core";
 import { handle, param } from "../http.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -9,7 +16,10 @@ import { requireAdmin } from "../middleware/auth.js";
 // Sources + citations: public read (source transparency), write is admin-only — design doc section 9.
 export const provenanceRouter = Router();
 
-provenanceRouter.get("/sources", handle(async (_req, res) => res.json(await listSources())));
+provenanceRouter.get(
+  "/sources",
+  handle(async (_req, res) => res.json(await listSources())),
+);
 
 provenanceRouter.get(
   "/citations",
@@ -23,21 +33,41 @@ provenanceRouter.get(
   }),
 );
 
-provenanceRouter.post("/sources", requireAdmin, handle(async (req, res) => {
-  res.status(201).json(await createSource(sourceInput.parse(req.body)));
-}));
-provenanceRouter.put("/sources/:id", requireAdmin, handle(async (req, res) => {
-  await updateSource(param(req, "id"), sourceInput.parse(req.body));
-  res.status(204).end();
-}));
-provenanceRouter.delete("/sources/:id", requireAdmin, handle(async (req, res) => {
-  await deleteSource(param(req, "id"));
-  res.status(204).end();
-}));
-provenanceRouter.post("/citations", requireAdmin, handle(async (req, res) => {
-  res.status(201).json(await createCitation(citationInput.parse(req.body)));
-}));
-provenanceRouter.delete("/citations/:id", requireAdmin, handle(async (req, res) => {
-  await deleteCitation(param(req, "id"));
-  res.status(204).end();
-}));
+provenanceRouter.post(
+  "/sources",
+  requireAdmin,
+  handle(async (req, res) => {
+    res.status(201).json(await createSource(sourceInput.parse(req.body)));
+  }),
+);
+provenanceRouter.put(
+  "/sources/:id",
+  requireAdmin,
+  handle(async (req, res) => {
+    await updateSource(param(req, "id"), sourceInput.parse(req.body));
+    res.status(204).end();
+  }),
+);
+provenanceRouter.delete(
+  "/sources/:id",
+  requireAdmin,
+  handle(async (req, res) => {
+    await deleteSource(param(req, "id"));
+    res.status(204).end();
+  }),
+);
+provenanceRouter.post(
+  "/citations",
+  requireAdmin,
+  handle(async (req, res) => {
+    res.status(201).json(await createCitation(citationInput.parse(req.body)));
+  }),
+);
+provenanceRouter.delete(
+  "/citations/:id",
+  requireAdmin,
+  handle(async (req, res) => {
+    await deleteCitation(param(req, "id"));
+    res.status(204).end();
+  }),
+);
