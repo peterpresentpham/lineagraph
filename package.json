@@ -4,10 +4,15 @@
   "packageManager": "pnpm@12.4.1",
   "scripts": {
     "dev:api": "pnpm --filter @lineagraph/api dev",
-    "dev:worker": "pnpm --filter @lineagraph/worker dev",
+    "import:wikidata": "pnpm --filter @lineagraph/scripts exec tsx src/import-wikidata.ts",
     "dev:web": "pnpm --filter @lineagraph/web dev",
     "dev:admin": "pnpm --filter @lineagraph/admin dev",
+    "db:generate": "pnpm --filter @lineagraph/core db:generate",
+    "db:migrate": "pnpm --filter @lineagraph/core db:migrate",
+    "db:seed": "pnpm --filter @lineagraph/core db:seed",
+    "db:create-admin": "pnpm --filter @lineagraph/core db:create-admin",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @lineagraph/core test"
   }
 }

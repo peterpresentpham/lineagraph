@@ -6,6 +6,16 @@
 
 ---
 
+> **Cập nhật mô hình quan hệ (thay thế các đoạn nói về `history.parentage` và `history.union_` bên dưới).**
+> Sản phẩm xoay quanh *hồ sơ* của nhân vật và chính thể; quan hệ giữa chúng là tuỳ chọn và mở rộng được, không phải chỉ cha mẹ–con.
+> - Mọi quan hệ nằm trong **một bảng `kg.relation`** (`type`, `from_id`, `to_id`, `variant`, `label`, `note`, `disputed`, thời gian mờ, `state`). Cha mẹ–con (`parent_of`, variant ruột/nuôi/kế) và vợ chồng (`spouse_of`, variant hôn nhân/thứ phi…) chỉ là hai loại trong danh mục. Hai bảng `history.parentage` và `history.union_` đã bị xoá (dữ liệu cũ đã được chuyển bằng migration 0003).
+> - `kg.relation_type` có **cặp thuận/nghịch** (chỉ lưu chiều chính, chiều ngược suy ra khi đọc), loại **đối xứng** (lưu một lần, id nhỏ trước), cờ `is_acyclic` (kiểm tra vòng lặp bằng recursive CTE) và `subject_kinds/object_kinds` (nhân vật, chính thể). Thêm loại mới là thêm dữ liệu, không sửa code (trang admin "Loại quan hệ").
+> - Hồ sơ: `kg.node.body` (văn bản dài) và `kg.attribute` / `kg.attribute_type` (thông tin tuỳ ý: quê quán, nơi an táng, kinh đô…, giá trị là văn bản).
+> - Chức vụ vẫn ở `history.tenure`; khi tìm đường nối hai nút, chức vụ được coi là một cạnh chi phí 2.
+> - **Tìm mối quan hệ** (`GET /relations?a=&b=`): (1) suy ra họ hàng huyết thống bằng tổ tiên chung gần nhất và số đời mỗi bên (`packages/core/src/relations/kinship.ts`): họ nội và họ ngoại (ông/bà nội/ngoại, bác, chú, cô, cậu, dì, anh chị em họ…); người xa hơn gọi "tổ N đời theo dòng cha/mẹ", dòng lẫn lộn thì chỉ "tổ N đời"; (2) liệt kê quan hệ trực tiếp; (3) các chuỗi quan hệ ngắn nhất (`pathfinder.ts`). Cả hai là hàm thuần, có test vàng (`pnpm test`).
+> - **Sơ đồ quan hệ**: `GET /polities/:slug/graph` và `GET /persons/:slug/graph?depth=` trả nút và cạnh; web vẽ bằng @xyflow/react, bố cục dagre theo cạnh cha→con, các quan hệ khác vẽ chồng lên.
+> - Các bảng/truy vấn `parentage`/`union_` ở những mục sau chỉ còn giá trị tham khảo lịch sử thiết kế.
+
 ## 1. Tóm tắt một đoạn
 
 Một web app (và sau đó là app di động) giúp học lịch sử Việt Nam bằng cách **khám phá mạng lưới quan hệ** giữa nhân vật và triều đại: ai là con của ai, ai kế vị ai, ai là thầy/đối thủ/đồng minh của ai, hai nhân vật cách nhau bao nhiêu đời. Người dùng không đọc một danh sách mốc thời gian khô khan mà **đi dọc theo đồ thị**: bấm vào một vị vua, thấy cha mẹ, vợ con, người kế vị, triều đại, những sự kiện liên quan. Phần học tập (câu hỏi, lịch ôn, lộ trình) chạy trên chính đồ thị đó.
@@ -501,7 +511,7 @@ MVP chỉ có khoảng 50–150 nhân vật, thế giới có thể lên tới h
 
 | Vấn đề | Giải pháp theo giai đoạn |
 |---|---|
-| Truy vấn tổ tiên/hậu duệ chậm khi cây sâu và rộng | Giai đoạn 1: recursive CTE. Khi đo thấy chậm: **bảng đóng (closure table)** `history.person_closure(ancestor_id, descendant_id, depth, via_kinds)`, worker cập nhật khi `parentage` đổi |
+| Truy vấn tổ tiên/hậu duệ chậm khi cây sâu và rộng | Giai đoạn 1: recursive CTE. Khi đo thấy chậm: **bảng đóng (closure table)** `history.person_closure(ancestor_id, descendant_id, depth, via_kinds)`, API cập nhật trong cùng transaction với lúc ghi `parentage`, nên bảng không bao giờ lệch |
 | Tìm kiếm tên | `pg_trgm` + `unaccent` + full-text (đã có chỉ mục ở `kg.name`), lọc theo `collection` và `kind` |
 | Khoảng thời gian chồng lấn | Chỉ mục GiST trên `fuzzy_date.span` |
 | Nhập hàng loạt | Schema `staging_*` + dry-run + `--apply` (như ETL ở repo teencare), rồi **khử trùng lặp** và gộp bằng `merged_into` |
@@ -745,7 +755,7 @@ Dựng đồ thị vô hướng từ mọi loại cạnh (cha-con, hôn phối, 
 ### 7.5 Dòng thời gian và "cùng thời"
 Truy vấn khoảng chồng lấn trên `earliest/latest` (có thể dùng kiểu `daterange` + chỉ mục GiST). Trả lời "ai sống cùng thời với X", "triều đại nào song song với Y".
 
-### 7.6 Kiểm tra tính nhất quán (chạy khi ghi và chạy định kỳ)
+### 7.6 Kiểm tra tính nhất quán (API chạy khi ghi và khi admin mở báo cáo, không có job định kỳ)
 - Không chu trình tổ tiên.
 - Cha/mẹ phải sinh trước con (so sánh có xét độ mờ, chỉ cảnh báo khi chắc chắn mâu thuẫn).
 - Một người không giữ hai nhiệm kỳ độc quyền chồng nhau.
@@ -895,7 +905,7 @@ Viết bộ test với dữ liệu mẫu nhỏ, mỗi ca có kết quả mong đ
 4. "Triều đại nào đứng sau triều đại X?"
 5. "Ai không thuộc nhóm này?" (nhận biết nhân vật khác triều đại).
 6. "Giải thích đường quan hệ" (điền chỗ trống trong chuỗi).
-- Câu hỏi sinh từ **mẫu + đồ thị**, kèm đáp án nhiễu hợp lý (nhân vật cùng triều đại hoặc cùng thời).
+- Câu hỏi sinh từ **mẫu + đồ thị** ngay trong API khi phục vụ phiên ôn tập (không có job sinh trước), kèm đáp án nhiễu hợp lý (nhân vật cùng triều đại hoặc cùng thời).
 - Mỗi câu trỏ về **dữ kiện nguồn** của đáp án, khi trả lời sai người học bấm vào xem nguồn.
 - **Không sinh câu hỏi từ dữ kiện độ tin cậy thấp hoặc đang tranh cãi**, hoặc phải đánh dấu rõ.
 
@@ -936,7 +946,7 @@ Theo từng thẻ và từng nhánh: "đã nắm 60% hoàng tộc Trần". Bản
 apps/
   web/            Next.js: khám phá, học, quản trị
   api/            REST (Hono/Express): đọc đồ thị, học tập, quản trị
-  worker/         nhập dữ liệu, sinh câu hỏi, kiểm tra nhất quán, sao lưu
+  scripts/        script chạy tay, hiện chỉ có nhập Wikidata (`pnpm import:wikidata [--apply]`) — không cron, không hàng đợi
   mobile/         (giai đoạn sau) ôn tập offline
 packages/
   core/           schema Drizzle, services, kiểu dùng chung
@@ -957,7 +967,7 @@ Lý do tách `learning`, `graph-view`, `provenance` thành package chung nhưng 
 | API | Hono hoặc Express + zod | Validation, lỗi thống nhất kiểu `ServiceError` |
 | Web | Next.js, Tailwind, shadcn/ui | Đã quen |
 | Tìm kiếm | Postgres full-text + `unaccent` + `pg_trgm` | Tìm tên không dấu, tên gần đúng |
-| Hàng đợi | Postgres (`SKIP LOCKED`) | Đã dùng ở repo cũ, khỏi thêm Redis |
+| Việc nền | Không có. Nghiệp vụ chạy trong API; chỉ nhập Wikidata là script chạy tay (`apps/scripts`) | Quy mô nhỏ, không cần hàng đợi/cron; thêm khi có số liệu chứng minh cần |
 | Lưu ảnh | Cloudinary hoặc object storage | Ảnh tư liệu |
 | Deploy | Một VPS hoặc Railway, Docker | Đơn giản |
 
@@ -978,10 +988,10 @@ Chưa cần: graph database, microservices, Kubernetes. Mình khuyến nghị th
 
 ### 11.2 Quy trình nhập
 1. **Nhập tay có cấu trúc** cho lõi (khoảng vài trăm nhân vật chính) qua trang quản trị, vì chất lượng quan trọng hơn số lượng.
-2. **Nhập hàng loạt từ Wikidata** (worker): dry-run mặc định, hiển thị diff, `--apply` mới ghi (giống quy ước ETL của repo teencare). Dữ liệu nhập vào trạng thái `proposed`, chưa hiển thị cho đến khi duyệt.
+2. **Nhập hàng loạt từ Wikidata** (script `import-wikidata`, chạy tay): dry-run mặc định, hiển thị diff, `--apply` mới ghi (giống quy ước ETL của repo teencare). Dữ liệu nhập vào trạng thái `proposed`, chưa hiển thị cho đến khi duyệt.
 3. **Khử trùng lặp:** cùng một người có thể có nhiều bản ghi (tên khác nhau). Cần bước ghép (match) có điểm tin cậy và duyệt tay.
 4. **Duyệt:** `draft → proposed → approved/rejected`. Chỉ `approved` mới đưa vào học tập.
-5. **Kiểm tra nhất quán** (mục 7.6) chạy sau mỗi lần nhập và định kỳ.
+5. **Kiểm tra nhất quán** (mục 7.6): API chạy mỗi lần admin ghi và khi mở báo cáo; sau khi chạy script nhập, mở báo cáo để kiểm tra.
 
 ### 11.3 Chất lượng
 - Mỗi nhân vật/triều đại có ít nhất một nguồn trước khi duyệt.
@@ -1055,7 +1065,7 @@ Chưa cần: graph database, microservices, Kubernetes. Mình khuyến nghị th
 1. **Chọn thời kỳ nào cho MVP?** (nên là thời kỳ bạn quan tâm và có nguồn tốt)
 2. **Nguồn chính:** dùng Wikidata làm khung rồi biên soạn tay, hay biên soạn tay hoàn toàn từ sách bạn có?
 3. **Có cần tiếng Anh không,** hay chỉ tiếng Việt? (ảnh hưởng thiết kế i18n)
-4. **Ngôn ngữ phía API/worker:** TypeScript (quen thuộc) hay thử Go/Rust cho phần xử lý đồ thị?
+4. **Ngôn ngữ phía API/script:** TypeScript (quen thuộc) hay thử Go/Rust cho phần xử lý đồ thị?
 5. **Ai là người dùng thứ hai?** (nếu chỉ mình bạn, có thể bỏ qua phân quyền phức tạp)
 6. **Hosting:** Railway/Neon (quen thuộc) hay VPS tự dựng (học hạ tầng)?
 

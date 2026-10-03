@@ -1,6 +1,7 @@
 import { Router } from "express";
 
-// Spaced repetition (SM-2/FSRS) and progress — design doc section 8.
+// Spaced repetition (SM-2/FSRS) and progress — design doc section 8. Questions are built on
+// demand from approved facts (buildQuestions in @lineagraph/core), not by a background job.
 export const learningRouter = Router();
 
 learningRouter.get("/review/today", (_req, res) => {

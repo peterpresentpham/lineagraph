@@ -59,47 +59,6 @@ export const personDate = history.table(
   ],
 );
 
-export const union_ = history.table(
-  "union",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    aId: uuid("a_id")
-      .notNull()
-      .references(() => person.id),
-    bId: uuid("b_id")
-      .notNull()
-      .references(() => person.id),
-    kind: text("kind").notNull().default("marriage"),
-    rank: text("rank"),
-    startId: uuid("start_id").references(() => fuzzyDate.id),
-    endId: uuid("end_id").references(() => fuzzyDate.id),
-    endReason: text("end_reason"),
-    state: text("state").notNull().default("proposed"),
-  },
-  (t) => [],
-);
-
-export const parentage = history.table(
-  "parentage",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    parentId: uuid("parent_id")
-      .notNull()
-      .references(() => person.id),
-    childId: uuid("child_id")
-      .notNull()
-      .references(() => person.id),
-    kind: text("kind").notNull(),
-    unionId: uuid("union_id").references(() => union_.id),
-    state: text("state").notNull().default("proposed"),
-  },
-  (t) => [
-    uniqueIndex("parentage_parent_child_kind_key").on(t.parentId, t.childId, t.kind),
-    index("parentage_child_idx").on(t.childId),
-    index("parentage_parent_idx").on(t.parentId),
-  ],
-);
-
 export const polity = history.table("polity", {
   id: uuid("id")
     .primaryKey()

@@ -1,21 +1,75 @@
 import { Router } from "express";
+import {
+  createRelationType, createRelationship, deleteRelationType, deleteRelationship, findRelations,
+  getRelationshipForEdit, listRelationTypes, listRelationships, relationTypeInput, relationshipInput,
+  updateRelationType, updateRelationship,
+} from "@lineagraph/core";
 import { z } from "zod";
+import { handle, param } from "../http.js";
+import { requireAdmin } from "../middleware/auth.js";
 
-// Core feature of the app: pick two people -> list of relationships.
-// Fully specified in design doc section 7.7 — write golden tests (7.7.7b) before implementing the real algorithm.
+// Relationships between people and polities.
+// - GET /relations?a=&b=         public "how are these two related" search (design doc 7.7)
+// - /relation-types              the vocabulary (public read, admin write)
+// - /relationships               the stored facts (admin only)
 export const relationsRouter = Router();
 
-const querySchema = z.object({
-  a: z.string(),
-  b: z.string(),
-  includeDisputed: z.coerce.boolean().optional().default(false),
-});
+relationsRouter.get(
+  "/relations",
+  handle(async (req, res) => {
+    const { a, b } = req.query;
+    if (typeof a !== "string" || typeof b !== "string" || !a || !b) {
+      res.status(400).json({ error: "Cần chọn hai đối tượng (a và b)" });
+      return;
+    }
+    res.json(await findRelations(a, b, { includeDisputed: req.query.includeDisputed === "1" }));
+  }),
+);
 
-relationsRouter.get("/relations", (req, res) => {
-  const parsed = querySchema.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: "invalid_query", issues: parsed.error.issues });
-    return;
-  }
-  res.status(501).json({ error: "not_implemented", ...parsed.data });
-});
+relationsRouter.get("/relation-types", handle(async (_req, res) => res.json(await listRelationTypes())));
+relationsRouter.post("/relation-types", requireAdmin, handle(async (req, res) => {
+  await createRelationType(relationTypeInput.parse(req.body));
+  res.status(201).end();
+}));
+relationsRouter.put("/relation-types/:code", requireAdmin, handle(async (req, res) => {
+  const body = z
+    .object({
+      label: z.string().trim().min(1, "Nhãn không được để trống"),
+      inverseLabel: z.string().trim().nullish(),
+      category: z.string().trim().min(1).optional(),
+      isAcyclic: z.boolean().optional(),
+    })
+    .parse(req.body);
+  await updateRelationType(param(req, "code"), body);
+  res.status(204).end();
+}));
+relationsRouter.delete("/relation-types/:code", requireAdmin, handle(async (req, res) => {
+  await deleteRelationType(param(req, "code"));
+  res.status(204).end();
+}));
+
+relationsRouter.use("/relationships", requireAdmin);
+relationsRouter.get("/relationships", handle(async (req, res) => {
+  const q = req.query;
+  res.json(
+    await listRelationships({
+      nodeId: typeof q.nodeId === "string" ? q.nodeId : undefined,
+      type: typeof q.type === "string" ? q.type : undefined,
+      q: typeof q.q === "string" ? q.q : undefined,
+      limit: q.limit ? Number(q.limit) : undefined,
+      offset: q.offset ? Number(q.offset) : undefined,
+    }),
+  );
+}));
+relationsRouter.get("/relationships/:id", handle(async (req, res) => res.json(await getRelationshipForEdit(param(req, "id")))));
+relationsRouter.post("/relationships", handle(async (req, res) => {
+  res.status(201).json(await createRelationship(relationshipInput.parse(req.body)));
+}));
+relationsRouter.put("/relationships/:id", handle(async (req, res) => {
+  await updateRelationship(param(req, "id"), relationshipInput.parse(req.body));
+  res.status(204).end();
+}));
+relationsRouter.delete("/relationships/:id", handle(async (req, res) => {
+  await deleteRelationship(param(req, "id"));
+  res.status(204).end();
+}));

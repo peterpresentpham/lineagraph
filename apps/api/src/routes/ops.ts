@@ -1,15 +1,15 @@
 import { Router } from "express";
+import { getStats } from "@lineagraph/core";
+import { handle } from "../http.js";
 import { requireAdmin } from "../middleware/auth.js";
 
-// Consistency-check report (cycles, conflicting dates, orphaned citations — section 7.6)
-// and triggers the bulk-import job (dry-run/--apply — section 11.2), which actually runs in apps/worker.
+// Admin dashboard numbers. The consistency report (section 7.6) is computed on demand by
+// runConsistencyCheck in @lineagraph/core once implemented; no background job.
 export const opsRouter = Router();
-opsRouter.use(requireAdmin);
+opsRouter.use("/stats", requireAdmin);
 
-opsRouter.get("/consistency-report", (_req, res) => {
-  res.status(501).json({ error: "not_implemented" });
-});
+opsRouter.get("/stats", handle(async (_req, res) => res.json(await getStats())));
 
-opsRouter.post("/imports/run", (_req, res) => {
+opsRouter.get("/consistency-report", requireAdmin, (_req, res) => {
   res.status(501).json({ error: "not_implemented" });
 });

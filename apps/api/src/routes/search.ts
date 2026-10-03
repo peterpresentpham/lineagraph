@@ -1,9 +1,12 @@
 import { Router } from "express";
+import { search } from "@lineagraph/core";
+import { handle } from "../http.js";
 
-// Diacritic-insensitive name search, matching every name variant (given name, style name,
-// temple name...) — design doc section 10.3.
 export const searchRouter = Router();
 
-searchRouter.get("/search", (req, res) => {
-  res.status(501).json({ error: "not_implemented", q: req.query.q });
-});
+searchRouter.get(
+  "/search",
+  handle(async (req, res) => {
+    res.json(await search(typeof req.query.q === "string" ? req.query.q : ""));
+  }),
+);
