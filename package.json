@@ -1,0 +1,13 @@
+{
+  "name": "lineagraph",
+  "private": true,
+  "packageManager": "pnpm@12.4.1",
+  "scripts": {
+    "dev:api": "pnpm --filter @lineagraph/api dev",
+    "dev:worker": "pnpm --filter @lineagraph/worker dev",
+    "dev:web": "pnpm --filter @lineagraph/web dev",
+    "dev:admin": "pnpm --filter @lineagraph/admin dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
