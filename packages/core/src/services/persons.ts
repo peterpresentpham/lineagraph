@@ -60,13 +60,15 @@ export async function listPersons(opts: { q?: string; limit?: number; offset?: n
   const filter = q
     ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${"%" + q + "%"})`
     : sql``;
-  const rows = await db.execute<SummaryRow>(
-    sql`${summarySelect} ${filter} order by pn.name_normalized limit ${limit} offset ${offset}`,
-  );
-  const [{ count }] = await db.execute<{ count: number }>(
-    sql`select count(*)::int as count from kg.node n join history.person p on p.id = n.id
-        where n.deleted_at is null ${filter}`,
-  );
+  const [rows, [{ count }]] = await Promise.all([
+    db.execute<SummaryRow>(
+      sql`${summarySelect} ${filter} order by pn.name_normalized limit ${limit} offset ${offset}`,
+    ),
+    db.execute<{ count: number }>(
+      sql`select count(*)::int as count from kg.node n join history.person p on p.id = n.id
+          where n.deleted_at is null ${filter}`,
+    ),
+  ]);
   return { items: rows.map(summaryFrom), total: count };
 }
 
@@ -99,63 +101,68 @@ async function resolveId(slugOrId: string): Promise<string> {
 
 export async function getPerson(slugOrId: string) {
   const id = await resolveId(slugOrId);
-  const [base] = await getPersonSummaries([id]);
-  const [meta] = await db
-    .select({ sex: person.sex, historicity: person.historicity, summary: person.summary })
-    .from(person)
-    .where(eq(person.id, id));
-  const names = await db.execute<{
-    name: string;
-    kind: string;
-    language: string | null;
-    is_primary: boolean;
-  }>(
-    sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
-  );
-
-  const attributes = await db.execute<{ type: string; label: string | null; value: string }>(
-    sql`select a.type, l.text as label, a.value
-        from kg.attribute a
-        left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = 'vi'
-        where a.node_id = ${id} order by a.sort_order`,
-  );
-  const [bodyRow] = await db.select({ body: node.body }).from(node).where(eq(node.id, id));
-  const relations = await getNodeRelations(id);
-
-  // Siblings are derived: anyone who shares a parent.
-  const siblingIds = await db.execute<{ id: string }>(
-    sql`select distinct r2.to_id as id
-        from kg.relation r1 join kg.relation r2 on r2.from_id = r1.from_id and r2.type = 'parent_of'
-        where r1.type = 'parent_of' and r1.to_id = ${id} and r2.to_id <> ${id}`,
-  );
+  // Everything below only depends on `id`, not on each other's results, so it is fetched as one
+  // batch of round trips in flight at once instead of paying the per-round-trip network cost
+  // nine times over, sequentially, for what is otherwise sub-millisecond work on the DB side.
+  const [[base], meta, names, attributes, [bodyRow], relations, siblingIds, tenureRows] =
+    await Promise.all([
+      getPersonSummaries([id]),
+      db
+        .select({ sex: person.sex, historicity: person.historicity, summary: person.summary })
+        .from(person)
+        .where(eq(person.id, id))
+        .then(([row]) => row!),
+      db.execute<{
+        name: string;
+        kind: string;
+        language: string | null;
+        is_primary: boolean;
+      }>(
+        sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
+      ),
+      db.execute<{ type: string; label: string | null; value: string }>(
+        sql`select a.type, l.text as label, a.value
+            from kg.attribute a
+            left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = 'vi'
+            where a.node_id = ${id} order by a.sort_order`,
+      ),
+      db.select({ body: node.body }).from(node).where(eq(node.id, id)),
+      getNodeRelations(id),
+      // Siblings are derived: anyone who shares a parent.
+      db.execute<{ id: string }>(
+        sql`select distinct r2.to_id as id
+            from kg.relation r1 join kg.relation r2 on r2.from_id = r1.from_id and r2.type = 'parent_of'
+            where r1.type = 'parent_of' and r1.to_id = ${id} and r2.to_id <> ${id}`,
+      ),
+      db.execute<{
+        id: string;
+        polity_id: string | null;
+        polity_slug: string | null;
+        polity_name: string | null;
+        office_type: string;
+        start_edtf: string | null;
+        end_edtf: string | null;
+        seq: number | null;
+      }>(
+        sql`select t.id, t.polity_id, pn.slug as polity_slug, pm.name as polity_name, t.office_type,
+                   sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq
+            from history.tenure t
+            left join kg.node pn on pn.id = t.polity_id and pn.deleted_at is null
+            left join kg.name pm on pm.node_id = t.polity_id and pm.is_primary
+            left join kg.fuzzy_date sd on sd.id = t.start_id
+            left join kg.fuzzy_date ed on ed.id = t.end_id
+            where t.person_id = ${id}
+            order by sd.earliest_jdn nulls last`,
+      ),
+    ]);
+  // Depends on siblingIds above, so it is the one round trip that cannot join that batch.
   const siblings = await getPersonSummaries(siblingIds.map((r) => r.id));
-
-  const tenureRows = await db.execute<{
-    id: string;
-    polity_id: string | null;
-    polity_slug: string | null;
-    polity_name: string | null;
-    office_type: string;
-    start_edtf: string | null;
-    end_edtf: string | null;
-    seq: number | null;
-  }>(
-    sql`select t.id, t.polity_id, pn.slug as polity_slug, pm.name as polity_name, t.office_type,
-               sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq
-        from history.tenure t
-        left join kg.node pn on pn.id = t.polity_id and pn.deleted_at is null
-        left join kg.name pm on pm.node_id = t.polity_id and pm.is_primary
-        left join kg.fuzzy_date sd on sd.id = t.start_id
-        left join kg.fuzzy_date ed on ed.id = t.end_id
-        where t.person_id = ${id}
-        order by sd.earliest_jdn nulls last`,
-  );
 
   return {
     ...base!,
-    sex: meta!.sex,
-    historicity: meta!.historicity,
-    summary: meta!.summary,
+    sex: meta.sex,
+    historicity: meta.historicity,
+    summary: meta.summary,
     names: names.map((n) => ({
       name: n.name,
       kind: n.kind,

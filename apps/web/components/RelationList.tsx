@@ -1,14 +1,25 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { Badge } from "@lineagraph/ui";
+import { Badge, Button } from "@lineagraph/ui";
 import { categoryLabels, variantLabels } from "@/lib/labels";
 import type { NodeRelation } from "@/lib/types";
 
 type RelationListProps = { relations: NodeRelation[] };
 
+const INITIAL_COUNT = 4;
+
 // Relationships of one person or polity, grouped by category and read from its point of view.
+// Starts collapsed to a handful of items so a person with a long record doesn't push the rest
+// of the page down; "Tải thêm" reveals the remainder in place.
 export function RelationList({ relations }: RelationListProps) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? relations : relations.slice(0, INITIAL_COUNT);
+  const hidden = relations.length - visible.length;
+
   const groups = new Map<string, NodeRelation[]>();
-  for (const r of relations) groups.set(r.category, [...(groups.get(r.category) ?? []), r]);
+  for (const r of visible) groups.set(r.category, [...(groups.get(r.category) ?? []), r]);
   return (
     <div className="flex flex-col gap-5">
       {[...groups.entries()].map(([category, items]) => (
@@ -41,6 +52,16 @@ export function RelationList({ relations }: RelationListProps) {
           </div>
         </div>
       ))}
+      {hidden > 0 && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="self-start"
+          onClick={() => setExpanded(true)}
+        >
+          Tải thêm ({hidden})
+        </Button>
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import {
   BookOpen,
@@ -6,6 +7,8 @@ import {
   LayoutDashboard,
   LogOut,
   Network,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings2,
   Users,
 } from "lucide-react";
@@ -22,23 +25,69 @@ const nav = [
   { to: "/registries", label: "Danh mục", icon: Settings2 },
 ];
 
+const STORAGE_KEY = "lineagraph.sidebar-collapsed";
+
 export function Layout() {
   const { email, loading, logout } = useAuth();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+    } catch {
+      // Storage can be blocked (private mode); the sidebar just stays expanded.
+    }
+  }, []);
+
   if (loading) return null;
   if (!email) return <Navigate to="/login" replace />;
+
+  const toggle = () =>
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
 
   const navLinkClass = (isActive: boolean) =>
     cn(
       "text-muted-foreground hover:bg-muted hover:text-foreground flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-sm font-medium transition-colors",
+      collapsed && "justify-center px-0",
       isActive && "bg-accent text-foreground",
     );
 
   return (
     <div className="flex min-h-screen">
-      <aside className="bg-card sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r p-3 md:flex">
-        <div className="px-2 pb-5 pt-2">
-          <div className="font-serif text-lg font-semibold">Sử Phả</div>
-          <div className="text-muted-foreground text-xs">Quản trị</div>
+      <aside
+        className={cn(
+          "bg-card sticky top-0 hidden h-screen shrink-0 flex-col border-r p-3 transition-[width] duration-150 md:flex",
+          collapsed ? "w-16" : "w-60",
+        )}
+      >
+        <div className="flex items-center justify-between gap-2 px-2 pb-5 pt-2">
+          {!collapsed && (
+            <div>
+              <div className="font-serif text-lg font-semibold">Sử Phả</div>
+              <div className="text-muted-foreground text-xs">Quản trị</div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={toggle}
+            title={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
+            aria-label={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-sm p-1.5 transition-colors"
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-4" />
+            ) : (
+              <PanelLeftClose className="size-4" />
+            )}
+          </button>
         </div>
         <nav className="flex flex-1 flex-col gap-0.5">
           {nav.map(({ to, label, icon: Icon, end }) => (
@@ -46,10 +95,11 @@ export function Layout() {
               key={to}
               to={to}
               end={end}
+              title={collapsed ? label : undefined}
               className={({ isActive }) => navLinkClass(isActive)}
             >
-              <Icon className="size-4" />
-              {label}
+              <Icon className="size-4 shrink-0" />
+              {!collapsed && label}
             </NavLink>
           ))}
         </nav>

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GitCompare, Network } from "lucide-react";
-import { Badge, Button } from "@lineagraph/ui";
+import { Badge } from "@lineagraph/ui";
+import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { PersonCard } from "@/components/PersonCard";
+import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
 import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
@@ -34,30 +35,16 @@ export default async function PersonPage({ params }: Props) {
 
   return (
     <>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl">{person.name}</h1>
-          <p className="text-muted-foreground mt-1">
-            {lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <Badge variant="neutral">{sexLabels[person.sex]}</Badge>
-            <Badge variant={person.historicity === "historical" ? "success" : "warning"}>
-              {historicityLabels[person.historicity]}
-            </Badge>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Link href={`/relations?a=${person.slug}`}>
-            <Button variant="secondary">
-              <GitCompare /> Tìm quan hệ
-            </Button>
-          </Link>
-          <Link href={`/graph?node=${person.slug}`}>
-            <Button variant="secondary">
-              <Network /> Sơ đồ quan hệ
-            </Button>
-          </Link>
+      <div>
+        <h1 className="text-3xl">{person.name}</h1>
+        <p className="text-muted-foreground mt-1">
+          {lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <Badge variant="neutral">{sexLabels[person.sex]}</Badge>
+          <Badge variant={person.historicity === "historical" ? "success" : "warning"}>
+            {historicityLabels[person.historicity]}
+          </Badge>
         </div>
       </div>
 
@@ -118,12 +105,19 @@ export default async function PersonPage({ params }: Props) {
         </Section>
       )}
 
+      <Section title="Sơ đồ quan hệ">
+        <EntityEgoGraph slug={person.slug} />
+      </Section>
+
       <Section title="Quan hệ">
         {person.relations.length === 0 ? (
           <Empty>Chưa có quan hệ nào được ghi.</Empty>
         ) : (
           <RelationList relations={person.relations} />
         )}
+        <div className="mt-5 border-t pt-5">
+          <RelationCompare subjectSlug={person.slug} />
+        </div>
       </Section>
 
       {person.siblings.length > 0 && (

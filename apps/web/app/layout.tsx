@@ -1,4 +1,5 @@
 import { SiteHeader } from "@/components/SiteHeader";
+import { SiteSidebar } from "@/components/SiteSidebar";
 import { SITE_URL } from "@/lib/site";
 import { themeInitScript } from "@lineagraph/ui";
 import type { Metadata, Viewport } from "next";
@@ -44,13 +45,15 @@ export default function RootLayout({ children }: Props) {
         />
       </head>
       <body>
-        <SiteHeader />
-        <main className="max-w-360 mx-auto min-h-[calc(100vh-4rem)] px-4 py-8 sm:px-6 lg:px-10">
-          {children}
-        </main>
-        <footer className="text-muted-foreground border-t py-6 text-center text-xs">
-          Sử Phả — học lịch sử Việt Nam qua phả hệ
-        </footer>
+        <div className="flex min-h-screen flex-col md:flex-row">
+          <SiteSidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <SiteHeader />
+            <main className="max-w-360 mx-auto w-full flex-1 px-4 py-8 sm:px-6 lg:px-10">
+              {children}
+            </main>
+          </div>
+        </div>
       </body>
     </html>
   );

@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
-import type { EgoApi, GraphNode } from "@lineagraph/ui/graph";
+import { useState } from "react";
+import type { GraphNode } from "@lineagraph/ui/graph";
+import { egoApi } from "@/lib/egoApi";
 import { NodePicker } from "./NodePicker";
 import { renderNodeLink } from "./GraphClient";
 
@@ -15,41 +16,12 @@ const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoG
   ),
 });
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, init);
-  if (!res.ok) throw new Error(`API ${path} failed with ${res.status}`);
-  return res.json();
-}
-
 type Props = { initial?: { slug: string; name: string } };
 
 // Pick someone, see the people around them, grow the picture on demand.
 export function GraphExplorer({ initial }: Props) {
   const [node, setNode] = useState(initial ?? null);
   const [pickerKey, setPickerKey] = useState(0);
-
-  const api = useMemo<EgoApi>(
-    () => ({
-      graph: (root, o) =>
-        request(
-          `/nodes/${encodeURIComponent(root)}/graph?depth=${o.depth}&limit=${o.limit}&disputed=${o.includeDisputed ? 1 : 0}`,
-        ),
-      expand: (nodeId, known, o) =>
-        request("/graph/expand", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            nodeId,
-            known,
-            limit: o.limit,
-            includeDisputed: o.includeDisputed,
-          }),
-        }),
-    }),
-    [],
-  );
 
   const follow = (slug: string, name: string) => {
     setNode({ slug, name });
@@ -75,7 +47,7 @@ export function GraphExplorer({ initial }: Props) {
         {node ? (
           <EgoGraph
             root={node.slug}
-            api={api}
+            api={egoApi}
             renderLink={renderNodeLink}
             onRootChange={onRecenter}
           />

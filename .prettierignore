@@ -5,6 +5,5 @@ node_modules
 pnpm-lock.yaml
 packages/core/drizzle
 apps/web/next-env.d.ts
-apps/web/AGENTS.md
 docs
 *.sql

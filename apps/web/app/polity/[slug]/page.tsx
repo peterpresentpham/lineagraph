@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
 import { GraphClient } from "@/components/GraphClient";
+import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
 import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
@@ -70,11 +71,12 @@ export default async function PolityPage({ params }: Props) {
         <GraphClient data={graph} />
       </Section>
 
-      {polity.relations.length > 0 && (
-        <Section title="Quan hệ với các chính thể và nhân vật khác">
-          <RelationList relations={polity.relations} />
-        </Section>
-      )}
+      <Section title="Quan hệ với các chính thể và nhân vật khác">
+        {polity.relations.length > 0 && <RelationList relations={polity.relations} />}
+        <div className={polity.relations.length > 0 ? "mt-5 border-t pt-5" : undefined}>
+          <RelationCompare subjectSlug={polity.slug} />
+        </div>
+      </Section>
 
       <Section title="Những người giữ chức vụ">
         {polity.tenures.length === 0 ? (

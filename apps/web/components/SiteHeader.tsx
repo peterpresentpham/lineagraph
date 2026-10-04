@@ -1,49 +1,67 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
-import { ThemeToggle } from "@lineagraph/ui";
+import { ThemeToggle, cn } from "@lineagraph/ui";
+import { nav } from "@/lib/nav";
 
-const nav = [
-  { href: "/persons", label: "Nhân vật" },
-  { href: "/polities", label: "Chính thể" },
-  { href: "/graph", label: "Sơ đồ" },
-  { href: "/relations", label: "Tìm quan hệ" },
-  { href: "/timeline", label: "Dòng thời gian" },
-];
-
-export function SiteHeader() {
+function SearchForm() {
   return (
-    <header className="border-t-primary bg-card/95 sticky top-0 z-40 border-b border-t-[3px] backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-[90rem] items-center gap-6 px-4 sm:px-6 lg:px-10">
+    <form action="/search" className="w-full">
+      <label className="relative block">
+        <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+        <input
+          name="q"
+          type="search"
+          placeholder="Tìm nhân vật, triều đại..."
+          className="border-input bg-background focus:border-primary h-10 w-full rounded-sm border pl-9 pr-3 text-sm outline-none"
+        />
+      </label>
+    </form>
+  );
+}
+
+// Top bar next to SiteSidebar. On narrow screens the sidebar is hidden, so this also carries
+// the brand and a horizontal nav strip (mirrors apps/admin's header + sidebar structure).
+export function SiteHeader() {
+  const pathname = usePathname();
+  return (
+    <header className="border-t-primary bg-card/95 sticky top-0 z-30 border-b border-t-[3px] backdrop-blur">
+      <div className="flex h-14 items-center gap-3 px-4 md:px-8">
         <Link
           href="/"
-          className="text-foreground font-serif text-xl font-semibold tracking-wide no-underline"
+          className="text-foreground font-serif text-lg font-semibold no-underline md:hidden"
         >
           Sử Phả
         </Link>
-        <nav className="hidden items-center gap-1 sm:flex">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-sm px-3 py-1.5 text-sm font-medium no-underline transition-colors"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-        <form action="/search" className="ml-auto flex w-full max-w-xs items-center">
-          <label className="relative w-full">
-            <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" />
-            <input
-              name="q"
-              type="search"
-              placeholder="Tìm nhân vật, triều đại..."
-              className="border-input bg-background focus:border-primary h-10 w-full rounded-sm border pl-9 pr-4 text-sm outline-none"
-            />
-          </label>
-        </form>
-        <ThemeToggle />
+        <div className="hidden w-full max-w-xs md:block">
+          <SearchForm />
+        </div>
+        <div className="ml-auto flex items-center">
+          <ThemeToggle />
+        </div>
       </div>
+      <div className="px-3 pb-2 md:hidden">
+        <SearchForm />
+      </div>
+      <nav className="flex gap-1 overflow-x-auto px-3 pb-2 md:hidden">
+        {nav.map(({ href, label }) => {
+          const active = pathname?.startsWith(href) ?? false;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "text-muted-foreground shrink-0 rounded-sm px-3 py-1.5 text-sm font-medium no-underline",
+                active && "bg-accent text-foreground",
+              )}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
     </header>
   );
 }

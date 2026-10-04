@@ -65,51 +65,60 @@ async function resolveId(slugOrId: string): Promise<string> {
 
 export async function getPolity(slugOrId: string) {
   const id = await resolveId(slugOrId);
-  const [base] = await db.execute<ListRow>(sql`${listSelect} and n.id = ${id}`);
-  const [meta] = await db.select({ summary: polity.summary }).from(polity).where(eq(polity.id, id));
-  const names = await db.execute<{
-    name: string;
-    kind: string;
-    language: string | null;
-    is_primary: boolean;
-  }>(
-    sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
-  );
-  const attributes = await db.execute<{ type: string; label: string | null; value: string }>(
-    sql`select a.type, l.text as label, a.value
-        from kg.attribute a
-        left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = 'vi'
-        where a.node_id = ${id} order by a.sort_order`,
-  );
-  const [bodyRow] = await db.select({ body: node.body }).from(node).where(eq(node.id, id));
-  const relations = await getNodeRelations(id);
-  const tenures = await db.execute<{
-    id: string;
-    person_id: string;
-    person_slug: string;
-    person_name: string;
-    office_type: string;
-    succession_mode: string | null;
-    start_edtf: string | null;
-    end_edtf: string | null;
-    seq: number | null;
-    eras: { name: string }[] | null;
-  }>(
-    sql`select t.id, t.person_id, pn.slug as person_slug, pm.name as person_name, t.office_type,
-               t.succession_mode, sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq,
-               (select json_agg(json_build_object('name', e.name) order by e.name)
-                  from history.tenure_era e where e.tenure_id = t.id) as eras
-        from history.tenure t
-        join kg.node pn on pn.id = t.person_id and pn.deleted_at is null
-        join kg.name pm on pm.node_id = t.person_id and pm.is_primary
-        left join kg.fuzzy_date sd on sd.id = t.start_id
-        left join kg.fuzzy_date ed on ed.id = t.end_id
-        where t.polity_id = ${id}
-        order by t.seq nulls last, sd.earliest_jdn nulls last`,
-  );
+  // Everything below only depends on `id`, not on each other's results, so it is fetched as one
+  // batch of round trips in flight at once instead of paying the per-round-trip network cost
+  // seven times over, sequentially, for what is otherwise sub-millisecond work on the DB side.
+  const [[base], meta, names, attributes, [bodyRow], relations, tenures] = await Promise.all([
+    db.execute<ListRow>(sql`${listSelect} and n.id = ${id}`),
+    db
+      .select({ summary: polity.summary })
+      .from(polity)
+      .where(eq(polity.id, id))
+      .then(([row]) => row!),
+    db.execute<{
+      name: string;
+      kind: string;
+      language: string | null;
+      is_primary: boolean;
+    }>(
+      sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
+    ),
+    db.execute<{ type: string; label: string | null; value: string }>(
+      sql`select a.type, l.text as label, a.value
+          from kg.attribute a
+          left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = 'vi'
+          where a.node_id = ${id} order by a.sort_order`,
+    ),
+    db.select({ body: node.body }).from(node).where(eq(node.id, id)),
+    getNodeRelations(id),
+    db.execute<{
+      id: string;
+      person_id: string;
+      person_slug: string;
+      person_name: string;
+      office_type: string;
+      succession_mode: string | null;
+      start_edtf: string | null;
+      end_edtf: string | null;
+      seq: number | null;
+      eras: { name: string }[] | null;
+    }>(
+      sql`select t.id, t.person_id, pn.slug as person_slug, pm.name as person_name, t.office_type,
+                 t.succession_mode, sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq,
+                 (select json_agg(json_build_object('name', e.name) order by e.name)
+                    from history.tenure_era e where e.tenure_id = t.id) as eras
+          from history.tenure t
+          join kg.node pn on pn.id = t.person_id and pn.deleted_at is null
+          join kg.name pm on pm.node_id = t.person_id and pm.is_primary
+          left join kg.fuzzy_date sd on sd.id = t.start_id
+          left join kg.fuzzy_date ed on ed.id = t.end_id
+          where t.polity_id = ${id}
+          order by t.seq nulls last, sd.earliest_jdn nulls last`,
+    ),
+  ]);
   return {
     ...listItem(base!),
-    summary: meta!.summary,
+    summary: meta.summary,
     body: bodyRow?.body ?? null,
     attributes: attributes.map((a) => ({ type: a.type, label: a.label ?? a.type, value: a.value })),
     relations,

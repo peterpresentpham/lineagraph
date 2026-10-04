@@ -6,6 +6,7 @@ import type { Tx } from "../db";
 import type { RelationshipInput } from "../validation";
 import type { Sex } from "../relations/kinship";
 import { sexAwareLabel } from "../relations/roleLabel";
+import { cached } from "./cache";
 import { deleteDates, insertDate, parseDate } from "./dates";
 import type { DateView } from "./dates";
 
@@ -23,14 +24,20 @@ type TypeRow = {
   label: string | null;
 };
 
+// Relation types are admin-managed reference data that almost never changes between requests;
+// every lookup used to cost a full DB round trip even though the answer is the same every time.
+// Cached for a minute (matches the admin UI's own staleTime for the same data), so a type edit
+// shows up within a minute instead of needing a server restart.
 async function loadTypes(): Promise<Map<string, TypeRow>> {
-  const rows = await db.execute<TypeRow>(
-    sql`select t.code, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic, t.subject_kinds,
-               t.object_kinds, t.category, l.text as label
-        from kg.relation_type t
-        left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = 'vi'`,
-  );
-  return new Map(rows.map((r) => [r.code, r]));
+  return cached("relation-types", 60_000, async () => {
+    const rows = await db.execute<TypeRow>(
+      sql`select t.code, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic, t.subject_kinds,
+                 t.object_kinds, t.category, l.text as label
+          from kg.relation_type t
+          left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = 'vi'`,
+    );
+    return new Map(rows.map((r) => [r.code, r]));
+  });
 }
 
 /** Names, slugs and kinds for a set of nodes (deleted nodes are left out). */
