@@ -60,6 +60,7 @@ export type PersonDetail = PersonSummary & {
     officeType: string;
     start: DateValue | null;
     end: DateValue | null;
+    disputed: boolean;
   }[];
 };
 
@@ -77,6 +78,7 @@ export type PolityDetail = PolitySummary & {
     start: DateValue | null;
     end: DateValue | null;
     seq: number | null;
+    disputed: boolean;
     eras: string[];
   }[];
 };

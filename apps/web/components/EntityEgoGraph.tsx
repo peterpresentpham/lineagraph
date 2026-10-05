@@ -17,7 +17,7 @@ const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoG
   ),
 });
 
-type Props = { slug: string };
+type Props = { slug: string; height?: number };
 
 // The same ego-graph as /graph, rooted here and sized to live inline on a person/polity page
 // instead of sending the visitor to a separate page. Both React Flow's bundle and the graph
@@ -25,7 +25,7 @@ type Props = { slug: string };
 // even be looked at. Clicking ◎ recenters the view in place; clicking a name still opens that
 // entity's own page. "Mở sơ đồ đầy đủ" hands off to /graph for deeper, multi-step exploration
 // with the depth/picker controls that don't fit here.
-export function EntityEgoGraph({ slug }: Props) {
+export function EntityEgoGraph({ slug, height = 420 }: Props) {
   const [show, setShow] = useState(false);
 
   if (!show) {
@@ -43,7 +43,7 @@ export function EntityEgoGraph({ slug }: Props) {
 
   return (
     <div>
-      <EgoGraph root={slug} api={egoApi} renderLink={renderNodeLink} height={420} />
+      <EgoGraph root={slug} api={egoApi} renderLink={renderNodeLink} height={height} />
       <div className="mt-2 flex items-center justify-between">
         <Link
           href={`/graph?node=${encodeURIComponent(slug)}`}

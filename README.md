@@ -1,6 +1,6 @@
 # Sử Phả
 
-App học lịch sử Việt Nam qua phả hệ, nhân vật và triều đại. Tên tạm.
+App học lịch sử thế giới qua phả hệ, nhân vật và triều đại. Tên tạm.
 
 Codename kỹ thuật của repo/package là **lineagraph** (`@lineagraph/*`) — tên hàm, tên file,
 tên thư mục và comment trong code đều viết bằng tiếng Anh, xem quy ước ở [CLAUDE.md](CLAUDE.md).

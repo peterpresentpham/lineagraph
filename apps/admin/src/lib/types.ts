@@ -54,6 +54,7 @@ export type RelationType = {
   isSymmetric: boolean;
   isPrimary: boolean;
   isAcyclic: boolean;
+  defaultImportance: number;
   subjectKinds: NodeKind[];
   objectKinds: NodeKind[];
 };
@@ -70,6 +71,7 @@ export type RelationshipView = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  importance: number;
   start: DateValue | null;
   end: DateValue | null;
 };

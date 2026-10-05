@@ -69,6 +69,7 @@ graphRouter.get(
         limit: req.query.limit ? Number(req.query.limit) : undefined,
         types: csv(req.query.types),
         includeDisputed: req.query.disputed !== "0",
+        minImportance: req.query.minImportance ? Number(req.query.minImportance) : undefined,
       }),
     );
   }),
@@ -85,6 +86,7 @@ graphRouter.post(
         limit: z.number().int().min(1).max(100).optional(),
         types: z.array(z.string()).optional(),
         includeDisputed: z.boolean().optional(),
+        minImportance: z.number().int().min(1).max(5).optional(),
       })
       .parse(req.body);
     res.json(await expandEgoGraph(body.nodeId, body.known, body));

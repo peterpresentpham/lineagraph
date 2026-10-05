@@ -8,7 +8,7 @@ import type { TimelineEntry } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Dòng thời gian",
-  description: "Chính thể và nhân vật lịch sử Việt Nam theo thứ tự thời gian, nhóm theo thế kỷ.",
+  description: "Chính thể và nhân vật lịch sử thế giới theo thứ tự thời gian, nhóm theo thế kỷ.",
 };
 
 const century = (year: number) => (year > 0 ? Math.ceil(year / 100) : -Math.ceil(-year / 100));

@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { fuzzyDate } from "../schema/kg";
 import type { Tx } from "../db";
 import type { DateInput } from "../validation";
@@ -21,7 +21,7 @@ function toJdn(year: number, month: number, day: number): number {
 
 const pad = (n: number, width: number) => String(Math.abs(n)).padStart(width, "0");
 
-function toRow(input: DateInput) {
+export function toRow(input: DateInput) {
   const { year, month, day, approximate } = input;
   const sign = year < 0 ? "-" : "";
   let edtf = `${sign}${pad(year, 4)}`;
@@ -54,14 +54,6 @@ export async function deleteDates(tx: Tx, ids: (string | null)[]) {
   if (real.length) await tx.delete(fuzzyDate).where(inArray(fuzzyDate.id, real));
 }
 
-export async function replaceDate(
-  tx: Tx,
-  oldId: string | null,
-  input: DateInput | null | undefined,
-) {
-  return { oldId, newId: await insertDate(tx, input) };
-}
-
 export type DateView = {
   year: number;
   month: number | null;
@@ -85,13 +77,4 @@ export function parseDate(edtf: string | null): DateView | null {
   else if (month) label = `${month}/${yearLabel}`;
   if (approximate) label = `khoảng ${label}`;
   return { year, month, day, approximate, label };
-}
-
-export async function getDateEdtf(tx: Tx, id: string | null) {
-  if (!id) return null;
-  const [row] = await tx
-    .select({ edtf: fuzzyDate.edtf })
-    .from(fuzzyDate)
-    .where(eq(fuzzyDate.id, id));
-  return parseDate(row?.edtf ?? null);
 }

@@ -14,6 +14,8 @@ type Props = {
   title: string;
   description?: string;
   saving: boolean;
+  /** Editing an existing record with no field changed: Save is disabled and submit is ignored. */
+  unchanged?: boolean;
   onSubmit: () => void;
   children: ReactNode;
 };
@@ -25,12 +27,13 @@ export function FormSheet({
   title,
   description,
   saving,
+  unchanged = false,
   onSubmit,
   children,
 }: Props) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit();
+    if (!unchanged) onSubmit();
   };
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -45,7 +48,7 @@ export function FormSheet({
             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
               Huỷ
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" disabled={saving || unchanged}>
               {saving ? "Đang lưu..." : "Lưu"}
             </Button>
           </div>

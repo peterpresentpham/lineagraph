@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
-import { GraphClient } from "@/components/GraphClient";
+import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
 import { PageHeader } from "@/components/PageHeader";
 import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
-import type { GraphView, PolityDetail } from "@/lib/types";
+import type { PolityDetail } from "@/lib/types";
 
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const polity = await apiGet<PolityDetail>(`/polities/${(await params).slug}`);
-  const description = polity.summary ?? `${polity.name} trong lịch sử Việt Nam.`;
+  const description = polity.summary ?? `${polity.name} trong lịch sử thế giới.`;
   return {
     title: polity.name,
     description,
@@ -25,8 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PolityPage({ params }: Props) {
   const { slug } = await params;
   const polity = await apiGet<PolityDetail>(`/polities/${slug}`);
-  const [graph, typeLabels, offices, modes] = await Promise.all([
-    apiGet<GraphView>(`/polities/${slug}/graph`),
+  const [typeLabels, offices, modes] = await Promise.all([
     getLabels("polity_type"),
     getLabels("office_type"),
     getLabels("succession_mode"),
@@ -58,7 +57,9 @@ export default async function PolityPage({ params }: Props) {
 
       {polity.summary && (
         <Section title="Giới thiệu">
-          <p className="max-w-prose-page whitespace-pre-line text-lg leading-relaxed">{polity.summary}</p>
+          <p className="max-w-prose-page whitespace-pre-line text-lg leading-relaxed">
+            {polity.summary}
+          </p>
         </Section>
       )}
 
@@ -75,7 +76,7 @@ export default async function PolityPage({ params }: Props) {
       )}
 
       <Section title="Cây quan hệ">
-        <GraphClient data={graph} />
+        <EntityEgoGraph slug={polity.slug} height={560} />
       </Section>
 
       <Section title="Quan hệ với các chính thể và nhân vật khác">
@@ -112,7 +113,8 @@ export default async function PolityPage({ params }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="text-muted-foreground text-sm">
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  {t.disputed && <Badge variant="warning">Còn tranh cãi</Badge>}
                   {t.start || t.end ? `${t.start?.label ?? "?"} – ${t.end?.label ?? "?"}` : ""}
                 </div>
               </li>

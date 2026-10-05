@@ -13,7 +13,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { toDateInput, variantOptions } from "../lib/format";
+import { importanceLevels, toDateInput, variantOptions } from "../lib/format";
 import { errorMessage } from "../lib/hooks";
 import type { DateInput, NodeKind, NodeRef, RelationType, RelationshipView } from "../lib/types";
 import { DateField, cleanDate } from "./DateField";
@@ -29,6 +29,7 @@ type Form = {
   label: string;
   note: string;
   disputed: boolean;
+  importance: number;
   start: DateInput | null;
   end: DateInput | null;
 };
@@ -41,6 +42,7 @@ const emptyForm = (fromId: string | null): Form => ({
   label: "",
   note: "",
   disputed: false,
+  importance: 3,
   start: null,
   end: null,
 });
@@ -72,10 +74,13 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
   const [form, setForm] = useState<Form>(emptyForm(fixedFrom?.id ?? null));
   const [names, setNames] = useState<{ from?: string; to?: string }>({ from: fixedFrom?.name });
   const [fromKind, setFromKind] = useState<NodeKind | null>(fixedFrom?.kind ?? null);
+  // Serialized form as loaded for an edit; null when creating.
+  const [baseline, setBaseline] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     if (!editingId) {
+      setBaseline(null);
       setForm({
         ...emptyForm(preset?.from.id ?? fixedFrom?.id ?? null),
         toId: preset?.to.id ?? null,
@@ -87,7 +92,7 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
     api
       .get<RelationshipView & { fromId: string; toId: string }>(`/relationships/${editingId}`)
       .then((r) => {
-        setForm({
+        const loaded: Form = {
           type: r.type,
           fromId: r.fromId,
           toId: r.toId,
@@ -95,9 +100,12 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
           label: r.label ?? "",
           note: r.note ?? "",
           disputed: r.disputed,
+          importance: r.importance,
           start: toDateInput(r.start),
           end: toDateInput(r.end),
-        });
+        };
+        setForm(loaded);
+        setBaseline(JSON.stringify(loaded));
         setNames({ from: r.from.name, to: r.to.name });
         setFromKind(r.from.kind);
       })
@@ -157,6 +165,7 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
       title={editingId ? "Sửa quan hệ" : "Thêm quan hệ"}
       description="Nối hai nhân vật hoặc chính thể bằng một loại quan hệ bất kỳ. Thêm loại mới ở trang Loại quan hệ."
       saving={save.isPending}
+      unchanged={baseline !== null && JSON.stringify(form) === baseline}
       onSubmit={() => save.mutate()}
     >
       <Field label="Đối tượng thứ nhất">
@@ -181,9 +190,14 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
       <Field label="Loại quan hệ">
         <Select
           value={form.type || UNSET_TYPE}
-          onValueChange={(v) =>
-            setForm({ ...form, type: v === UNSET_TYPE ? "" : v, toId: null, variant: "" })
-          }
+          onValueChange={(v) => {
+            const type = v === UNSET_TYPE ? "" : v;
+            // A new relationship starts from its type's default importance (still editable).
+            const importance = !editingId
+              ? (types?.find((t) => t.code === type)?.defaultImportance ?? form.importance)
+              : form.importance;
+            setForm({ ...form, type, toId: null, variant: "", importance });
+          }}
         >
           <SelectTrigger className="w-full">
             <SelectValue />
@@ -253,6 +267,26 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
           value={form.note}
           onChange={(e) => setForm({ ...form, note: e.target.value })}
         />
+      </Field>
+      <Field
+        label="Độ quan trọng"
+        hint="Quan hệ càng quan trọng thì càng hiện sớm trên sơ đồ; mức thấp chỉ hiện khi bấm Tải thêm."
+      >
+        <Select
+          value={String(form.importance)}
+          onValueChange={(v) => setForm({ ...form, importance: Number(v) })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {importanceLevels.map(([value, label]) => (
+              <SelectItem key={value} value={String(value)}>
+                {value} · {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
       <Label className="flex items-center gap-2 font-normal">
         <Checkbox

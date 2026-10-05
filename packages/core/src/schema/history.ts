@@ -4,6 +4,7 @@ import {
   uuid,
   boolean,
   integer,
+  smallint,
   primaryKey,
   uniqueIndex,
   index,
@@ -23,6 +24,9 @@ export const officeType = history.table("office_type", {
   code: text("code").primaryKey(),
   category: text("category").notNull().default("other"),
   isSovereign: boolean("is_sovereign").notNull().default(false),
+  // 1-5: how central an office is to its polity; sets the importance of the graph link
+  // between an office-holder and the polity (5 = head of the polity, e.g. emperor, lord).
+  importance: smallint("importance").notNull().default(3),
 });
 
 export const successionMode = history.table("succession_mode", {
@@ -86,6 +90,8 @@ export const tenure = history.table(
     startId: uuid("start_id").references(() => fuzzyDate.id),
     endId: uuid("end_id").references(() => fuzzyDate.id),
     seq: integer("seq"),
+    // Dates or the very fact of holding this office are contested between sources.
+    disputed: boolean("disputed").notNull().default(false),
   },
   (t) => [
     index("tenure_person_idx").on(t.personId),

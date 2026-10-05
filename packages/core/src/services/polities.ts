@@ -101,10 +101,11 @@ export async function getPolity(slugOrId: string) {
       start_edtf: string | null;
       end_edtf: string | null;
       seq: number | null;
+      disputed: boolean;
       eras: { name: string }[] | null;
     }>(
       sql`select t.id, t.person_id, pn.slug as person_slug, pm.name as person_name, t.office_type,
-                 t.succession_mode, sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq,
+                 t.succession_mode, sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed,
                  (select json_agg(json_build_object('name', e.name) order by e.name)
                     from history.tenure_era e where e.tenure_id = t.id) as eras
           from history.tenure t
@@ -136,6 +137,7 @@ export async function getPolity(slugOrId: string) {
       start: parseDate(t.start_edtf),
       end: parseDate(t.end_edtf),
       seq: t.seq,
+      disputed: t.disputed,
       eras: (t.eras ?? []).map((e) => e.name),
     })),
   };

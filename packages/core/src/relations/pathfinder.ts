@@ -8,6 +8,8 @@ export type RelationEdge = {
   variant: string | null;
   label: string | null;
   disputed: boolean;
+  /** 1 (minor) to 5 (core); only graph views use it. */
+  importance?: number;
 };
 
 export type TenureEdge = { id: string; personId: string; polityId: string; officeType: string };

@@ -47,8 +47,9 @@ async function loadGraphData() {
       variant: string | null;
       label: string | null;
       disputed: boolean;
+      importance: number;
     }>(
-      sql`select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.disputed
+      sql`select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.disputed, r.importance
           from kg.relation r
           join kg.node f on f.id = r.from_id and f.deleted_at is null
           join kg.node t on t.id = r.to_id and t.deleted_at is null`,
@@ -87,6 +88,7 @@ async function loadGraphData() {
     variant: r.variant,
     label: r.label,
     disputed: r.disputed,
+    importance: r.importance,
   }));
   const tenures: TenureEdge[] = tenureRows.map((t) => ({
     id: t.id,
@@ -241,6 +243,8 @@ export type GraphEdge = {
   /** Short text to draw on the edge, e.g. "nuôi" or "Hoàng hậu". */
   text: string | null;
   disputed: boolean;
+  /** 1 (minor) to 5 (core). */
+  importance: number;
 };
 
 export type GraphView = { rootId: string; nodes: GraphNode[]; edges: GraphEdge[] };
@@ -305,6 +309,7 @@ function edgeFrom(r: RelationEdge, data: Awaited<ReturnType<typeof loadGraphData
     symmetric: t?.is_symmetric ?? false,
     text: parts.length ? parts.join(", ") : null,
     disputed: r.disputed,
+    importance: r.importance ?? 3,
   };
 }
 
@@ -316,10 +321,20 @@ export type EgoGraphOptions = {
   /** Only follow these relationship types ("tenure" selects office-holding). Empty = all. */
   types?: string[];
   includeDisputed?: boolean;
+  /**
+   * Show only links at or above this importance (1-5) when walking from the root; weaker links
+   * are counted as "hidden" and appear on load more. Default 5 = just the core of the graph.
+   */
+  minImportance?: number;
 };
 
 /** A GraphView plus, per node, how many neighbours are not drawn yet. */
-export type EgoGraphView = GraphView & { hidden: Record<string, number>; truncated: boolean };
+export type EgoGraphView = GraphView & {
+  hidden: Record<string, number>;
+  truncated: boolean;
+  /** Importance threshold the graph was built with (so the client can show it). */
+  minImportance: number;
+};
 
 type LinkRow = {
   id: string;
@@ -329,6 +344,7 @@ type LinkRow = {
   variant: string | null;
   label: string | null;
   disputed: boolean;
+  importance: number;
   category: string;
   is_symmetric: boolean;
   type_label: string | null;
@@ -362,7 +378,7 @@ async function fetchLinkRows(
   const relations =
     !relationTypes || relationTypes.length
       ? await db.execute<LinkRow>(
-          sql`select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.disputed,
+          sql`select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.disputed, r.importance,
                    t.category, t.is_symmetric, l.text as type_label
             from kg.relation r
             join kg.relation_type t on t.code = r.type
@@ -383,13 +399,16 @@ async function fetchLinkRows(
   const tenures = wantTenure
     ? await db.execute<LinkRow>(
         sql`select 'tenure:' || t.id as id, 'tenure' as type, t.person_id as from_id, t.polity_id as to_id,
-                   t.office_type as variant, l.text as label, false as disputed, 'politics' as category,
-                   false as is_symmetric, 'Chức vụ' as type_label
+                   t.office_type as variant, l.text as label, t.disputed as disputed,
+                   ot.importance as importance,
+                   'politics' as category, false as is_symmetric, 'Chức vụ' as type_label
             from history.tenure t
+            join history.office_type ot on ot.code = t.office_type
             left join kg.label l on l.namespace = 'office_type' and l.code = t.office_type and l.language = 'vi'
             join kg.node p on p.id = t.person_id and p.deleted_at is null
             join kg.node q on q.id = t.polity_id and q.deleted_at is null
-            where t.polity_id is not null and ${touchTenure}`,
+            where t.polity_id is not null and ${touchTenure}
+              ${opts.includeDisputed === false ? sql`and not t.disputed` : sql``}`,
       )
     : [];
   return [...relations, ...tenures];
@@ -411,16 +430,27 @@ function edgeFromRow(r: LinkRow): GraphEdge {
     symmetric: r.is_symmetric,
     text: text || null,
     disputed: r.disputed,
+    importance: r.importance,
   };
 }
 
+// Within one importance level, family links come before political and other ones.
 const toEgoLinks = (rows: LinkRow[]): EgoLink[] =>
-  rows.map((r) => ({ a: r.from_id, b: r.to_id, rank: RANK[r.category] ?? 2 }));
+  rows.map((r) => ({
+    a: r.from_id,
+    b: r.to_id,
+    rank: (5 - r.importance) * 10 + (RANK[r.category] ?? 2),
+    importance: r.importance,
+  }));
 
 /** Edges among `ids`, and how many neighbours of each are still outside `ids`. */
-async function describeSubgraph(ids: Set<string>, opts: EgoGraphOptions) {
+// `minImportance` also hides weaker links between nodes that are already drawn, so the first view
+// of a graph shows only the core links rather than every family tie among the drawn nodes.
+async function describeSubgraph(ids: Set<string>, opts: EgoGraphOptions, minImportance = 1) {
   const touching = await fetchLinkRows([...ids], opts);
-  const edges = touching.filter((r) => ids.has(r.from_id) && ids.has(r.to_id)).map(edgeFromRow);
+  const edges = touching
+    .filter((r) => ids.has(r.from_id) && ids.has(r.to_id) && r.importance >= minImportance)
+    .map(edgeFromRow);
   const hidden = Object.fromEntries(countHidden(ids, toEgoLinks(touching)));
   return { edges, hidden };
 }
@@ -436,18 +466,22 @@ export async function getEgoGraph(
   const root = await resolveNode(slugOrId);
   const depth = clamp(options.depth, 1, 4, 2);
   const limit = clamp(options.limit, 5, 200, 40);
+  // Every graph opens on the core links only (succession, founding); family and weaker links
+  // appear as the viewer loads more.
+  const minImportance = clamp(options.minImportance, 1, 5, 5);
   const { added, truncated } = await egoBfs({
     rootIds: [root.id],
     depth,
     limit: limit - 1,
+    minImportance,
     fetchLinks: async (ids) => toEgoLinks(await fetchLinkRows(ids, options)),
   });
   const ids = new Set([root.id, ...added]);
   const [nodes, { edges, hidden }] = await Promise.all([
     graphNodes([...ids]),
-    describeSubgraph(ids, options),
+    describeSubgraph(ids, options, minImportance),
   ]);
-  return { rootId: root.id, nodes, edges, hidden, truncated };
+  return { rootId: root.id, nodes, edges, hidden, truncated, minImportance };
 }
 
 /**
@@ -460,12 +494,15 @@ export async function expandEgoGraph(
   options: EgoGraphOptions = {},
 ): Promise<EgoGraphView> {
   const limit = clamp(options.limit, 1, 100, 30);
+  // Loading more around a node reveals everything, most important links first.
+  const minImportance = clamp(options.minImportance, 1, 5, 1);
   const knownSet = new Set(known);
   const { added, truncated } = await egoBfs({
     rootIds: [nodeId],
     known: knownSet,
     depth: 1,
     limit,
+    minImportance,
     fetchLinks: async (ids) => toEgoLinks(await fetchLinkRows(ids, options)),
   });
   const all = new Set([...knownSet, nodeId, ...added]);
@@ -481,6 +518,7 @@ export async function expandEgoGraph(
     edges: edges.filter((e) => newIds.has(e.source) || newIds.has(e.target)),
     hidden,
     truncated,
+    minImportance,
   };
 }
 

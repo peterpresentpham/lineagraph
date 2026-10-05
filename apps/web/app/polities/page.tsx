@@ -7,7 +7,7 @@ import type { PolitySummary } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Chính thể",
-  description: "Danh sách triều đại và chính quyền trong lịch sử Việt Nam, theo thứ tự thời gian.",
+  description: "Danh sách triều đại và chính quyền trong lịch sử thế giới, theo thứ tự thời gian.",
 };
 
 export default async function PolitiesPage() {
@@ -28,7 +28,11 @@ export default async function PolitiesPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {polities.map((p) => (
-              <PolityCard key={p.id} polity={p} typeLabel={typeLabels[p.polityType] ?? p.polityType} />
+              <PolityCard
+                key={p.id}
+                polity={p}
+                typeLabel={typeLabels[p.polityType] ?? p.polityType}
+              />
             ))}
           </div>
         )}

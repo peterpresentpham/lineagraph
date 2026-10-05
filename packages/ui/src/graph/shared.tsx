@@ -157,10 +157,31 @@ export const nodeTypes = { entity: EntityNode };
 export type Pos = { x: number; y: number };
 
 /**
- * Parent -> child links decide the layout (parents above children). Spouses are then moved onto
- * their partner's row, and rows are spread out so nothing overlaps. Every other relationship is
- * drawn on top without moving anything. (dagre cannot lay out zero-length edges, so spouses
- * are not part of the dagre graph.)
+ * The edges that shape the tree, as [upper, lower] node ids, or null for edges that are only
+ * drawn on top. Edges are stored in their primary direction, so "A successor_of B" (A follows B)
+ * puts B above A, and "person founder_of polity" puts the polity above its founder.
+ */
+function hierarchyOf(e: GraphEdge): [string, string] | null {
+  switch (e.type) {
+    case "parent_of":
+    case "succeeded_by":
+      return [e.source, e.target];
+    case "successor_of":
+    case "founder_of":
+    case "split_from":
+    case "vassal_of":
+      return [e.target, e.source];
+    default:
+      return null;
+  }
+}
+
+/**
+ * Lineage links (parent -> child, predecessor -> successor, polity -> founder) decide the layout:
+ * the older node sits above the newer one, like a family tree. Spouses are then moved onto their
+ * partner's row, and rows are spread out so nothing overlaps. Every other relationship is drawn
+ * on top without moving anything. (dagre cannot lay out zero-length edges, so spouses are not
+ * part of the dagre graph.)
  */
 export function layout(nodes: GraphNode[], edges: GraphEdge[]): Map<string, Pos> {
   const g = new dagre.graphlib.Graph();
@@ -169,9 +190,10 @@ export function layout(nodes: GraphNode[], edges: GraphEdge[]): Map<string, Pos>
   for (const n of nodes) g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   const hasParent = new Set<string>();
   for (const e of edges) {
-    if (e.category !== "family" || e.symmetric) continue;
-    g.setEdge(e.source, e.target, { minlen: 1, weight: 2 });
-    hasParent.add(e.target);
+    const link = hierarchyOf(e);
+    if (!link) continue;
+    g.setEdge(link[0], link[1], { minlen: 1, weight: 2 });
+    hasParent.add(link[1]);
   }
   dagre.layout(g);
   const pos = new Map(
@@ -260,10 +282,15 @@ export function buildEdges(
       const label =
         e.type === "parent_of" ? e.text : [e.typeLabel, e.text].filter(Boolean).join(" · ");
       const leftToRight = from.x <= to.x;
+      // The upper node must be React Flow's source (bottom handle) and the lower one its target
+      // (top handle). When the stored source is the lower node (a successor sits below its
+      // predecessor), swap the ends and move the arrowhead to the other end to keep its meaning.
+      const upward = !lateral && from.y > to.y;
+      const arrow = e.symmetric ? undefined : { type: MarkerType.ArrowClosed, color };
       return {
         id: e.id,
-        source: e.source,
-        target: e.target,
+        source: upward ? e.target : e.source,
+        target: upward ? e.source : e.target,
         sourceHandle: lateral ? (leftToRight ? "r" : "l") : "b",
         targetHandle: lateral ? (leftToRight ? "lt" : "rt") : "t",
         type: lateral ? "straight" : "smoothstep",
@@ -283,7 +310,7 @@ export function buildEdges(
                 : "3 3",
           cursor: "pointer",
         },
-        markerEnd: e.symmetric ? undefined : { type: MarkerType.ArrowClosed, color },
+        ...(upward ? { markerStart: arrow } : { markerEnd: arrow }),
       } satisfies Edge;
     });
 }

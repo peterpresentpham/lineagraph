@@ -19,7 +19,7 @@ export function PageHeader({ eyebrow, title, description, leading, meta, hero, c
     <header
       className={cn(
         "animate-fade-up flex items-start gap-5",
-        hero && "bg-aurora border-border rounded-3xl border p-6 shadow-card sm:p-8",
+        hero && "bg-aurora border-border shadow-card rounded-3xl border p-6 sm:p-8",
         className,
       )}
     >

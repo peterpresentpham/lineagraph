@@ -36,19 +36,28 @@ export const calendar = kg.table("calendar", {
   name: text("name").notNull(),
 });
 
-export const relationType = kg.table("relation_type", {
-  code: text("code").primaryKey(),
-  category: text("category").notNull(),
-  inverseCode: text("inverse_code"),
-  isSymmetric: boolean("is_symmetric").notNull().default(false),
-  subjectKinds: text("subject_kinds").array().notNull(),
-  objectKinds: text("object_kinds").array().notNull(),
-  // Of an inverse pair (parent_of / child_of) only the primary type is ever stored; the
-  // other is derived when reading, so one real-world fact is exactly one row.
-  isPrimary: boolean("is_primary").notNull().default(true),
-  // Cycles are rejected for acyclic types (e.g. nobody can be their own ancestor).
-  isAcyclic: boolean("is_acyclic").notNull().default(false),
-});
+export const relationType = kg.table(
+  "relation_type",
+  {
+    code: text("code").primaryKey(),
+    category: text("category").notNull(),
+    inverseCode: text("inverse_code"),
+    isSymmetric: boolean("is_symmetric").notNull().default(false),
+    subjectKinds: text("subject_kinds").array().notNull(),
+    objectKinds: text("object_kinds").array().notNull(),
+    // Of an inverse pair (parent_of / child_of) only the primary type is ever stored; the
+    // other is derived when reading, so one real-world fact is exactly one row.
+    isPrimary: boolean("is_primary").notNull().default(true),
+    // Cycles are rejected for acyclic types (e.g. nobody can be their own ancestor).
+    isAcyclic: boolean("is_acyclic").notNull().default(false),
+    // Starting importance (1-5) of a new relationship of this type. Each relationship stores its
+    // own `importance`; this is only the value the form and the service fall back to on create.
+    defaultImportance: smallint("default_importance").notNull().default(3),
+  },
+  (t) => [
+    check("relation_type_default_importance_check", sql`${t.defaultImportance} between 1 and 5`),
+  ],
+);
 
 export const label = kg.table(
   "label",
@@ -195,6 +204,9 @@ export const relation = kg.table(
     note: text("note"),
     // Sources disagree; hidden from path-finding unless the caller opts in.
     disputed: boolean("disputed").notNull().default(false),
+    // 1 (minor) to 5 (core). Graph views show only links at or above a threshold at first and
+    // reveal the rest on "load more", so a dynasty graph can start with just its rulers.
+    importance: smallint("importance").notNull().default(3),
     startId: uuid("start_id").references(() => fuzzyDate.id),
     endId: uuid("end_id").references(() => fuzzyDate.id),
     state: text("state").notNull().default("proposed"),
@@ -204,6 +216,7 @@ export const relation = kg.table(
     index("relation_from_type_idx").on(t.fromId, t.type),
     index("relation_to_type_idx").on(t.toId, t.type),
     check("relation_not_self_check", sql`${t.fromId} <> ${t.toId}`),
+    check("relation_importance_check", sql`${t.importance} between 1 and 5`),
   ],
 );
 

@@ -11,6 +11,39 @@ const links: EgoLink[] = [
 const fetchLinks = async (ids: string[]) =>
   links.filter((l) => ids.includes(l.a) || ids.includes(l.b));
 
+describe("egoBfs minImportance", () => {
+  const weighted: EgoLink[] = [
+    { a: "king", b: "heir", rank: 0, importance: 5 },
+    { a: "king", b: "queen", rank: 10, importance: 3 },
+    { a: "heir", b: "grandheir", rank: 0, importance: 5 },
+    { a: "queen", b: "queens-dad", rank: 10, importance: 4 },
+  ];
+  const fetchWeighted = async (ids: string[]) =>
+    weighted.filter((l) => ids.includes(l.a) || ids.includes(l.b));
+
+  it("only walks links at or above the threshold", async () => {
+    const r = await egoBfs({
+      rootIds: ["king"],
+      depth: 3,
+      limit: 99,
+      minImportance: 4,
+      fetchLinks: fetchWeighted,
+    });
+    expect(r.added).toEqual(["heir", "grandheir"]);
+  });
+
+  it("includes weaker links when the threshold drops", async () => {
+    const r = await egoBfs({
+      rootIds: ["king"],
+      depth: 1,
+      limit: 99,
+      minImportance: 1,
+      fetchLinks: fetchWeighted,
+    });
+    expect(r.added).toEqual(["heir", "queen"]);
+  });
+});
+
 describe("egoBfs", () => {
   it("walks outward layer by layer up to the depth", async () => {
     const r = await egoBfs({ rootIds: ["root"], depth: 1, limit: 99, fetchLinks });

@@ -13,7 +13,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const egoApi: EgoApi = {
   graph: (root, o) =>
     request(
-      `/nodes/${encodeURIComponent(root)}/graph?depth=${o.depth}&limit=${o.limit}&disputed=${o.includeDisputed ? 1 : 0}`,
+      `/nodes/${encodeURIComponent(root)}/graph?depth=${o.depth}&limit=${o.limit}&disputed=${o.includeDisputed ? 1 : 0}${o.minImportance ? `&minImportance=${o.minImportance}` : ""}`,
     ),
   expand: (nodeId, known, o) =>
     request("/graph/expand", {

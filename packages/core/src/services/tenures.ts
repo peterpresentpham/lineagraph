@@ -22,9 +22,10 @@ export async function listTenures(opts: { personId?: string; polityId?: string }
     start_edtf: string | null;
     end_edtf: string | null;
     seq: number | null;
+    disputed: boolean;
   }>(
     sql`select t.id, t.person_id, pm.name as person_name, t.polity_id, qm.name as polity_name, t.office_type,
-               sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq
+               sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed
         from history.tenure t
         join kg.node pn on pn.id = t.person_id and pn.deleted_at is null
         join kg.name pm on pm.node_id = t.person_id and pm.is_primary
@@ -43,6 +44,7 @@ export async function listTenures(opts: { personId?: string; polityId?: string }
     start: parseDate(r.start_edtf),
     end: parseDate(r.end_edtf),
     seq: r.seq,
+    disputed: r.disputed,
   }));
 }
 
@@ -54,10 +56,11 @@ export async function getTenureForEdit(id: string) {
     office_type: string;
     succession_mode: string | null;
     seq: number | null;
+    disputed: boolean;
     start_edtf: string | null;
     end_edtf: string | null;
   }>(
-    sql`select t.id, t.person_id, t.polity_id, t.office_type, t.succession_mode, t.seq,
+    sql`select t.id, t.person_id, t.polity_id, t.office_type, t.succession_mode, t.seq, t.disputed,
                sd.edtf as start_edtf, ed.edtf as end_edtf
         from history.tenure t
         left join kg.fuzzy_date sd on sd.id = t.start_id
@@ -83,6 +86,7 @@ export async function getTenureForEdit(id: string) {
     officeType: row.office_type,
     successionMode: row.succession_mode,
     seq: row.seq,
+    disputed: row.disputed,
     start: parseDate(row.start_edtf),
     end: parseDate(row.end_edtf),
     eras: eras.map((e) => ({
@@ -123,6 +127,7 @@ export async function createTenure(input: TenureInput) {
         officeType: input.officeType,
         successionMode: input.successionMode,
         seq: input.seq ?? null,
+        disputed: input.disputed,
         startId: await insertDate(tx, input.start),
         endId: await insertDate(tx, input.end),
       })
@@ -144,6 +149,7 @@ export async function updateTenure(id: string, input: TenureInput) {
         officeType: input.officeType,
         successionMode: input.successionMode,
         seq: input.seq ?? null,
+        disputed: input.disputed,
         startId: await insertDate(tx, input.start),
         endId: await insertDate(tx, input.end),
       })

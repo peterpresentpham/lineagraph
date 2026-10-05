@@ -11,6 +11,7 @@
     "db:generate": "pnpm --filter @lineagraph/core db:generate",
     "db:migrate": "pnpm --filter @lineagraph/core db:migrate",
     "db:seed": "pnpm --filter @lineagraph/core db:seed",
+    "db:describe-polities": "pnpm --filter @lineagraph/core db:describe-polities",
     "db:create-admin": "pnpm --filter @lineagraph/core db:create-admin",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

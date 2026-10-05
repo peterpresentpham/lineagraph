@@ -27,9 +27,9 @@ import { PageHeader } from "../components/PageHeader";
 import { useRelationTypes } from "../components/RelationForm";
 import { TableSkeleton } from "../components/TableSkeleton";
 import { api } from "../lib/api";
-import { categoryLabels, nodeKindLabels } from "../lib/format";
+import { categoryLabels, importanceLevels, nodeKindLabels } from "../lib/format";
 import { errorMessage } from "../lib/hooks";
-import type { NodeKind } from "../lib/types";
+import type { NodeKind, RelationType } from "../lib/types";
 
 type Form = {
   code: string;
@@ -39,6 +39,7 @@ type Form = {
   inverseCode: string;
   inverseLabel: string;
   acyclic: boolean;
+  defaultImportance: number;
   subjectKinds: NodeKind[];
   objectKinds: NodeKind[];
 };
@@ -50,6 +51,7 @@ const emptyForm = (): Form => ({
   inverseCode: "",
   inverseLabel: "",
   acyclic: false,
+  defaultImportance: 3,
   subjectKinds: ["person"],
   objectKinds: ["person"],
 });
@@ -100,6 +102,7 @@ export function RelationTypes() {
         category: form.category,
         isSymmetric: form.symmetric,
         isAcyclic: form.acyclic,
+        defaultImportance: form.defaultImportance,
         inverseCode: form.symmetric ? null : form.inverseCode,
         inverseLabel: form.symmetric ? null : form.inverseLabel,
         subjectKinds: form.subjectKinds,
@@ -108,6 +111,20 @@ export function RelationTypes() {
     onSuccess: () => {
       toast.success("Đã thêm loại quan hệ");
       setOpen(false);
+      refresh();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  const setDefaultImportance = useMutation({
+    mutationFn: (v: { type: RelationType; importance: number }) =>
+      api.put(`/relation-types/${v.type.code}`, {
+        label: v.type.label,
+        inverseLabel: v.type.inverseLabel,
+        defaultImportance: v.importance,
+      }),
+    onSuccess: () => {
+      toast.success("Đã cập nhật điểm mặc định");
       refresh();
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -169,14 +186,15 @@ export function RelationTypes() {
               <TableHead>Chiều ngược</TableHead>
               <TableHead>Áp dụng cho</TableHead>
               <TableHead>Nhóm</TableHead>
+              <TableHead>Điểm mặc định</TableHead>
               <TableHead className="w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableSkeleton cols={5} />}
+            {isLoading && <TableSkeleton cols={6} />}
             {!isLoading && filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+                <TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
                   {primaries.length === 0
                     ? "Chưa có loại quan hệ nào"
                     : "Không tìm thấy loại quan hệ phù hợp"}
@@ -209,6 +227,25 @@ export function RelationTypes() {
                   {t.objectKinds.map((k) => nodeKindLabels[k]).join(", ")}
                 </TableCell>
                 <TableCell>{categoryLabels[t.category] ?? t.category}</TableCell>
+                <TableCell>
+                  <Select
+                    value={String(t.defaultImportance)}
+                    onValueChange={(v) =>
+                      setDefaultImportance.mutate({ type: t, importance: Number(v) })
+                    }
+                  >
+                    <SelectTrigger className="w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {importanceLevels.map(([value, label]) => (
+                        <SelectItem key={value} value={String(value)}>
+                          {value} · {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell className="text-right">
                   <ConfirmDelete
                     title={`Xoá loại quan hệ "${t.label}"?`}
@@ -304,6 +341,26 @@ export function RelationTypes() {
               {Object.entries(categoryLabels).map(([code, label]) => (
                 <SelectItem key={code} value={code}>
                   {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field
+          label="Điểm quan trọng mặc định"
+          hint="Quan hệ mới thuộc loại này bắt đầu với điểm này; vẫn chỉnh riêng được từng quan hệ."
+        >
+          <Select
+            value={String(form.defaultImportance)}
+            onValueChange={(v) => setForm({ ...form, defaultImportance: Number(v) })}
+          >
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {importanceLevels.map(([value, label]) => (
+                <SelectItem key={value} value={String(value)}>
+                  {value} · {label}
                 </SelectItem>
               ))}
             </SelectContent>

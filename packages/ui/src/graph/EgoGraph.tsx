@@ -27,6 +27,10 @@ import {
 import type { EgoApi, EgoGraphData, GraphEdge, GraphNode, RenderNodeLink } from "./types";
 
 const FIRST_LIMIT = 40;
+// Graphs bigger than this open zoomed on the middle node and its closest neighbours.
+const FOCUS_COUNT = 8;
+const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  Math.hypot(a.x - b.x, a.y - b.y);
 const MORE_LIMIT = 30;
 
 type Crumb = { id: string; slug: string; name: string };
@@ -65,9 +69,11 @@ function Inner({
   reloadKey = 0,
 }: Props) {
   const colorMode = useColorMode();
-  const { fitView } = useReactFlow();
+  const { fitView, getNodes } = useReactFlow();
   const [depth, setDepth] = useState(2);
   const [includeDisputed, setIncludeDisputed] = useState(true);
+  // undefined = let the server choose (dynasties start with rulers only).
+  const [minImportance, setMinImportance] = useState<number | undefined>(undefined);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
   const [rootRef, setRootRef] = useState(root);
   const [trail, setTrail] = useState<Crumb[]>([]);
@@ -80,6 +86,8 @@ function Inner({
   const [hidden, setHidden] = useState<Record<string, number>>({});
   const [rootId, setRootId] = useState("");
   const [truncated, setTruncated] = useState(false);
+  // Threshold the server actually applied (shown, and lowered one step by "Tải thêm").
+  const [effMin, setEffMin] = useState(5);
   const [rfNodes, setRfNodes] = useState<Node<EntityNodeData>[]>([]);
   const fitSoon = useRef(0);
 
@@ -93,8 +101,8 @@ function Inner({
   }, [root]);
 
   const options = useMemo(
-    () => ({ depth, limit: FIRST_LIMIT, includeDisputed }),
-    [depth, includeDisputed],
+    () => ({ depth, limit: FIRST_LIMIT, includeDisputed, minImportance }),
+    [depth, includeDisputed, minImportance],
   );
 
   // Load the graph around `rootRef`.
@@ -111,6 +119,7 @@ function Inner({
         setHidden(data.hidden);
         setRootId(data.rootId);
         setTruncated(data.truncated);
+        setEffMin(data.minImportance ?? 1);
         setRfNodes(
           data.nodes.map((n) => ({
             id: n.id,
@@ -121,10 +130,12 @@ function Inner({
         );
         const middle = data.nodes.find((n) => n.id === data.rootId);
         if (middle) {
-          // Office-holding lines clutter a person's picture; around a polity they are the point.
+          // Office-holding lines clutter a person's picture, and a polity with many office-holders
+          // (a dynasty) turns into a fan of lines; the chip below brings them back.
+          const tenureLines = data.edges.filter((e) => e.type === "tenure").length;
           setHiddenTypes((prev) => {
             const next = new Set(prev);
-            if (middle.kind === "person") next.add("tenure");
+            if (middle.kind === "person" || tenureLines > 8) next.add("tenure");
             else next.delete("tenure");
             return next;
           });
@@ -148,9 +159,22 @@ function Inner({
 
   useEffect(() => {
     if (fitSoon.current === 0) return;
-    const t = setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 60);
+    const t = setTimeout(() => {
+      // A long lineage is a tall tree that would shrink to unreadable text when fitted whole, so
+      // a big graph opens on the middle node and its closest neighbours; pan or zoom for the rest.
+      const all = getNodes();
+      const middle = all.find((n) => n.id === rootId);
+      if (!middle || all.length <= FOCUS_COUNT) {
+        fitView({ padding: 0.15, duration: 300 });
+        return;
+      }
+      const near = [...all]
+        .sort((a, b) => dist(a.position, middle.position) - dist(b.position, middle.position))
+        .slice(0, FOCUS_COUNT);
+      fitView({ nodes: near, padding: 0.2, duration: 300 });
+    }, 60);
     return () => clearTimeout(t);
-  }, [rfNodes.length, rootId, fitView]);
+  }, [rfNodes.length, rootId, fitView, getNodes]);
 
   const expand = useCallback(
     async (nodeId: string) => {
@@ -203,8 +227,13 @@ function Inner({
     [onRootChange],
   );
 
-  // "Load more": the node closest to the centre that still has people hidden.
+  // "Load more": first reveal the next importance tier for the whole graph; once every tier is
+  // open, expand the node closest to the centre that still has people hidden.
   const loadMore = () => {
+    if (effMin > 1) {
+      setMinImportance(effMin - 1);
+      return;
+    }
     const dist = new Map<string, number>([[rootId, 0]]);
     const queue = [rootId];
     while (queue.length) {
@@ -283,6 +312,23 @@ function Inner({
           </select>
         </label>
         <label className="text-muted-foreground flex items-center gap-2">
+          Hiển thị
+          <select
+            value={minImportance ?? "auto"}
+            onChange={(e) =>
+              setMinImportance(e.target.value === "auto" ? undefined : Number(e.target.value))
+            }
+            className="border-input bg-background text-foreground h-8 rounded-lg border px-2"
+          >
+            <option value="auto">Tự động</option>
+            <option value={5}>Chỉ mối quan hệ cốt lõi</option>
+            <option value={4}>Quan trọng trở lên</option>
+            <option value={3}>Thông thường trở lên</option>
+            <option value={2}>Gồm cả quan hệ phụ</option>
+            <option value={1}>Tất cả</option>
+          </select>
+        </label>
+        <label className="text-muted-foreground flex items-center gap-2">
           <input
             type="checkbox"
             checked={includeDisputed}
@@ -330,7 +376,10 @@ function Inner({
       <div className="mb-3">
         <TypeFilter edges={[...graphEdges.values()]} hidden={hiddenTypes} onToggle={toggleType} />
       </div>
-      <div className="bg-card shadow-card relative overflow-hidden rounded-2xl border" style={{ height }}>
+      <div
+        className="bg-card shadow-card relative overflow-hidden rounded-2xl border"
+        style={{ height }}
+      >
         {status !== "ready" && (
           <div className="bg-card/80 text-muted-foreground absolute inset-0 z-10 grid place-items-center">
             {status === "loading" ? "Đang dựng sơ đồ..." : "Không tải được sơ đồ. Thử lại sau."}

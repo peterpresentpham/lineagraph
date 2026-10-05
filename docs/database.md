@@ -59,6 +59,7 @@ erDiagram
         text label "Hoàng hậu, Quân sư..."
         text note
         bool disputed "còn tranh cãi"
+        int importance "1 đến 5, quyết định hiện sớm hay muộn trên sơ đồ"
         uuid start_id FK
         uuid end_id FK
         text state
@@ -102,6 +103,7 @@ Quy ước của `kg.relation`:
 - Loại đối xứng (`spouse_of`, `friend_of`, `ally_of`) lưu một lần, nút có id nhỏ hơn đứng trước.
 - Loại có `is_acyclic` (cha mẹ–con) được kiểm tra vòng lặp bằng recursive CTE trước khi ghi.
 - `CHECK (from_id <> to_id)`: không nối một nút với chính nó.
+- `importance` (1 đến 5, `CHECK`): độ quan trọng của quan hệ. Sơ đồ chỉ đi theo các liên kết từ ngưỡng trở lên khi mở (chính thể: 4, nhân vật: 3); bấm "Tải thêm" hạ ngưỡng từng bậc. Liên kết chức vụ lấy mức từ `history.office_type.importance` (Hoàng đế/Vua/Công/Chúa là 5, Nhiếp chính và Tể tướng là 3, còn lại 2). Mặc định theo loại: kế vị và sáng lập 5, cha mẹ-con 3, bạn bè/đối thủ 2, còn lại 3; admin sửa được từng quan hệ.
 - Unique index biểu thức `relation_unique_key` chặn trùng lặp (thêm bằng SQL thô trong migration 0003).
 - Nhãn tiếng Việt của loại quan hệ nằm trong `kg.label`, không nằm trong `relation_type`.
 
@@ -162,6 +164,7 @@ erDiagram
         uuid start_id FK
         uuid end_id FK
         int seq "thứ tự trong chính thể"
+        bool disputed "thời gian hoặc việc giữ chức còn tranh cãi"
     }
     TENURE_ERA {
         uuid id PK
@@ -180,6 +183,7 @@ erDiagram
         text code PK
         text category
         bool is_sovereign
+        int importance "1 đến 5, độ quan trọng của liên kết người giữ chức - chính thể"
     }
 ```
 

@@ -9,7 +9,7 @@ import type { PersonSummary } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Nhân vật",
-  description: "Danh sách nhân vật lịch sử Việt Nam, tra cứu theo tên.",
+  description: "Danh sách nhân vật lịch sử thế giới, tra cứu theo tên.",
 };
 const PAGE_SIZE = 24;
 

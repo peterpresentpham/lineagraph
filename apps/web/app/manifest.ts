@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Sử Phả",
     short_name: "Sử Phả",
-    description: "Học lịch sử Việt Nam qua phả hệ, nhân vật và triều đại",
+    description: "Học lịch sử thế giới qua phả hệ, nhân vật và triều đại",
     start_url: "/",
     display: "standalone",
     background_color: "#f6f0e3",

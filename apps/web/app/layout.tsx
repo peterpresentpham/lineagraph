@@ -6,13 +6,13 @@ import { fontsHref, themeInitScript } from "@lineagraph/ui";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const description = "Học lịch sử Việt Nam qua phả hệ, nhân vật và triều đại";
+const description = "Học lịch sử thế giới qua phả hệ, nhân vật và triều đại";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: { default: "Sử Phả", template: "%s · Sử Phả" },
   description,
-  keywords: ["lịch sử Việt Nam", "phả hệ", "gia phả", "triều đại", "nhân vật lịch sử"],
+  keywords: ["lịch sử thế giới", "phả hệ", "gia phả", "triều đại", "nhân vật lịch sử"],
   openGraph: {
     title: "Sử Phả",
     description,

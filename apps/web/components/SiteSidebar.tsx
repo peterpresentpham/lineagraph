@@ -76,7 +76,7 @@ export function SiteSidebar() {
             >
               {active && (
                 <span
-                  className="bg-primary absolute -left-3 top-2 bottom-2 w-1 rounded-r-full"
+                  className="bg-primary absolute -left-3 bottom-2 top-2 w-1 rounded-r-full"
                   aria-hidden
                 />
               )}

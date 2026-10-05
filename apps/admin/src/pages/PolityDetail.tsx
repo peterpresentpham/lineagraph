@@ -59,6 +59,12 @@ type EditData = Omit<Form, "started" | "ended" | "summary" | "body"> & {
   ended: DateValue | null;
 };
 
+const toBody = (f: Form) => ({
+  ...f,
+  started: cleanDate(f.started),
+  ended: cleanDate(f.ended),
+});
+
 export function PolityDetail() {
   const { id = "new" } = useParams();
   const isNew = id === "new";
@@ -66,6 +72,8 @@ export function PolityDetail() {
   const queryClient = useQueryClient();
   const { data: types } = useRegistry("polity_type");
   const [form, setForm] = useState<Form>(emptyForm());
+  // Serialized request body of the form as loaded; used to tell whether anything was edited.
+  const [saved, setSaved] = useState<string | null>(null);
 
   const { data, isError, isLoading } = useQuery({
     queryKey: ["polity-edit", id],
@@ -74,19 +82,23 @@ export function PolityDetail() {
   });
   useEffect(() => {
     if (data) {
-      setForm({
+      const loaded = {
         ...data,
         summary: data.summary ?? "",
         body: data.body ?? "",
         started: toDateInput(data.started),
         ended: toDateInput(data.ended),
-      });
+      };
+      setForm(loaded);
+      setSaved(JSON.stringify(toBody(loaded)));
     }
   }, [data]);
 
+  const isDirty = isNew || JSON.stringify(toBody(form)) !== saved;
+
   const save = useMutation({
     mutationFn: async () => {
-      const body = { ...form, started: cleanDate(form.started), ended: cleanDate(form.ended) };
+      const body = toBody(form);
       if (isNew) return api.post<{ id: string }>("/polities", body);
       await api.put(`/polities/${id}`, body);
       return { id };
@@ -116,7 +128,7 @@ export function PolityDetail() {
       className="flex max-w-3xl flex-col gap-5"
       onSubmit={(e) => {
         e.preventDefault();
-        save.mutate();
+        if (isDirty) save.mutate();
       }}
     >
       <NamesField value={form.names} onChange={(names) => setForm({ ...form, names })} />
@@ -166,7 +178,7 @@ export function PolityDetail() {
         onChange={(attributes) => setForm({ ...form, attributes })}
       />
       <div>
-        <Button type="submit" disabled={save.isPending}>
+        <Button type="submit" disabled={save.isPending || !isDirty}>
           {save.isPending ? "Đang lưu..." : isNew ? "Tạo chính thể" : "Lưu thay đổi"}
         </Button>
       </div>

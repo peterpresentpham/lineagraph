@@ -57,6 +57,7 @@ relationsRouter.put(
         inverseLabel: z.string().trim().nullish(),
         category: z.string().trim().min(1).optional(),
         isAcyclic: z.boolean().optional(),
+        defaultImportance: z.number().int().min(1).max(5).optional(),
       })
       .parse(req.body);
     await updateRelationType(param(req, "code"), body);

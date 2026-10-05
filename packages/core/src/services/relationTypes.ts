@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import { ServiceError, notFound } from "../errors";
 import { label, relationType } from "../schema/kg";
@@ -13,6 +13,7 @@ export type RelationTypeView = {
   isSymmetric: boolean;
   isPrimary: boolean;
   isAcyclic: boolean;
+  defaultImportance: number;
   subjectKinds: string[];
   objectKinds: string[];
 };
@@ -26,11 +27,12 @@ export async function listRelationTypes(): Promise<RelationTypeView[]> {
     is_symmetric: boolean;
     is_primary: boolean;
     is_acyclic: boolean;
+    default_importance: number;
     subject_kinds: string[];
     object_kinds: string[];
   }>(
     sql`select t.code, l.text as label, t.category, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic,
-               t.subject_kinds, t.object_kinds
+               t.default_importance, t.subject_kinds, t.object_kinds
         from kg.relation_type t
         left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = 'vi'
         order by t.category, t.is_primary desc, t.code`,
@@ -45,6 +47,7 @@ export async function listRelationTypes(): Promise<RelationTypeView[]> {
     isSymmetric: r.is_symmetric,
     isPrimary: r.is_primary,
     isAcyclic: r.is_acyclic,
+    defaultImportance: r.default_importance,
     subjectKinds: r.subject_kinds,
     objectKinds: r.object_kinds,
   }));
@@ -72,6 +75,7 @@ export async function createRelationType(input: RelationTypeInput) {
       isSymmetric: symmetric,
       isPrimary: true,
       isAcyclic: input.isAcyclic,
+      defaultImportance: input.defaultImportance,
       subjectKinds: input.subjectKinds,
       objectKinds: input.objectKinds,
     });
@@ -83,6 +87,7 @@ export async function createRelationType(input: RelationTypeInput) {
         isSymmetric: false,
         isPrimary: false,
         isAcyclic: false,
+        defaultImportance: input.defaultImportance,
         subjectKinds: input.objectKinds,
         objectKinds: input.subjectKinds,
       });
@@ -95,12 +100,25 @@ export async function createRelationType(input: RelationTypeInput) {
 // Only labels, category and the acyclic flag can change: the code and kinds are referenced by data.
 export async function updateRelationType(
   code: string,
-  input: { label: string; inverseLabel?: string | null; category?: string; isAcyclic?: boolean },
+  input: {
+    label: string;
+    inverseLabel?: string | null;
+    category?: string;
+    isAcyclic?: boolean;
+    defaultImportance?: number;
+  },
 ) {
   const [row] = await db.select().from(relationType).where(eq(relationType.code, code));
   if (!row) throw notFound("loại quan hệ");
   await setLabel(code, input.label);
   if (row.inverseCode && input.inverseLabel) await setLabel(row.inverseCode, input.inverseLabel);
+  // Both sides of an inverse pair share one default importance.
+  if (input.defaultImportance !== undefined) {
+    await db
+      .update(relationType)
+      .set({ defaultImportance: input.defaultImportance })
+      .where(inArray(relationType.code, row.inverseCode ? [code, row.inverseCode] : [code]));
+  }
   await db
     .update(relationType)
     .set({

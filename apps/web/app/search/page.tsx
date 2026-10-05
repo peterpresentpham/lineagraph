@@ -8,7 +8,7 @@ import type { SearchResult } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Tìm kiếm",
-  description: "Tìm nhân vật hoặc chính thể trong lịch sử Việt Nam theo tên, không cần gõ dấu.",
+  description: "Tìm nhân vật hoặc chính thể trong lịch sử thế giới theo tên, không cần gõ dấu.",
 };
 
 type Props = { searchParams: Promise<{ q?: string }> };

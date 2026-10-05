@@ -74,6 +74,7 @@ export const tenureInput = z.object({
   start: optionalDate,
   end: optionalDate,
   seq: z.number().int().nullish(),
+  disputed: z.boolean().default(false),
   eras: z
     .array(
       z.object({
@@ -96,6 +97,9 @@ export const relationshipInput = z.object({
   label: optionalText(100),
   note: optionalText(),
   disputed: z.boolean().default(false),
+  // 1 (minor) to 5 (core): decides how early a graph view shows this link.
+  // Left out on create, it starts from the relation type's default importance.
+  importance: z.number().int().min(1).max(5).optional(),
   start: optionalDate,
   end: optionalDate,
 });
@@ -120,6 +124,7 @@ export const relationTypeInput = z.object({
   inverseLabel: optionalText(100),
   isSymmetric: z.boolean().default(false),
   isAcyclic: z.boolean().default(false),
+  defaultImportance: z.number().int().min(1).max(5).default(3),
   subjectKinds: nodeKinds,
   objectKinds: nodeKinds,
 });

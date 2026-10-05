@@ -29,14 +29,27 @@ export type GraphEdge = {
   symmetric: boolean;
   text: string | null;
   disputed: boolean;
+  /** 1 (minor) to 5 (core). */
+  importance?: number;
 };
 
 export type GraphView = { rootId: string; nodes: GraphNode[]; edges: GraphEdge[] };
 
 /** A graph plus, per node, how many neighbours are not drawn yet. */
-export type EgoGraphData = GraphView & { hidden: Record<string, number>; truncated: boolean };
+export type EgoGraphData = GraphView & {
+  hidden: Record<string, number>;
+  truncated: boolean;
+  /** Importance threshold the server applied (1-5). */
+  minImportance?: number;
+};
 
-export type EgoOptions = { depth: number; limit: number; includeDisputed: boolean };
+export type EgoOptions = {
+  depth: number;
+  limit: number;
+  includeDisputed: boolean;
+  /** Show only links at or above this importance (1-5); omit for the server default. */
+  minImportance?: number;
+};
 
 export type EgoApi = {
   graph: (root: string, options: EgoOptions) => Promise<EgoGraphData>;

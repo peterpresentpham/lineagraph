@@ -11,7 +11,7 @@ import type { RelationResult } from "@/lib/types";
 export const metadata: Metadata = {
   title: "Tìm mối quan hệ",
   description:
-    "Tìm mối quan hệ họ hàng giữa hai nhân vật lịch sử Việt Nam, trực tiếp hoặc qua tổ tiên chung.",
+    "Tìm mối quan hệ họ hàng giữa hai nhân vật lịch sử thế giới, trực tiếp hoặc qua tổ tiên chung.",
 };
 
 type Props = { searchParams: Promise<{ a?: string; b?: string; disputed?: string }> };
@@ -44,10 +44,7 @@ export default async function RelationsPage({ searchParams }: Props) {
         title="Tìm mối quan hệ"
         description="Chọn hai nhân vật hoặc chính thể để xem họ có quan hệ gì, trực tiếp hay qua những ai."
       />
-      <form
-        id="finder"
-        className="surface mt-8 flex flex-col gap-4 p-5 sm:flex-row sm:items-end"
-      >
+      <form id="finder" className="surface mt-8 flex flex-col gap-4 p-5 sm:flex-row sm:items-end">
         <NodePicker key={`a-${initA?.slug}`} name="a" label="Người thứ nhất" initial={initA} />
         <NodePicker key={`b-${initB?.slug}`} name="b" label="Người thứ hai" initial={initB} />
         <Button type="submit" size="lg">

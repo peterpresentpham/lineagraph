@@ -18,6 +18,7 @@ type TypeRow = {
   is_symmetric: boolean;
   is_primary: boolean;
   is_acyclic: boolean;
+  default_importance: number;
   subject_kinds: string[];
   object_kinds: string[];
   category: string;
@@ -31,8 +32,8 @@ type TypeRow = {
 async function loadTypes(): Promise<Map<string, TypeRow>> {
   return cached("relation-types", 60_000, async () => {
     const rows = await db.execute<TypeRow>(
-      sql`select t.code, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic, t.subject_kinds,
-                 t.object_kinds, t.category, l.text as label
+      sql`select t.code, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic,
+                 t.default_importance, t.subject_kinds, t.object_kinds, t.category, l.text as label
           from kg.relation_type t
           left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = 'vi'`,
     );
@@ -134,6 +135,7 @@ export type RelationshipView = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  importance: number;
   start: DateView | null;
   end: DateView | null;
 };
@@ -147,12 +149,13 @@ type RelationRow = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  importance: number;
   start_edtf: string | null;
   end_edtf: string | null;
 };
 
 const relationSelect = sql`
-  select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.note, r.disputed,
+  select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.note, r.disputed, r.importance,
          sd.edtf as start_edtf, ed.edtf as end_edtf
   from kg.relation r
   left join kg.fuzzy_date sd on sd.id = r.start_id
@@ -186,6 +189,7 @@ async function toViews(rows: RelationRow[]): Promise<RelationshipView[]> {
         label: r.label,
         note: r.note,
         disputed: r.disputed,
+        importance: r.importance,
         start: parseDate(r.start_edtf),
         end: parseDate(r.end_edtf),
       },
@@ -269,6 +273,7 @@ export async function getNodeRelations(nodeId: string): Promise<NodeRelation[]> 
 
 export async function createRelationship(input: RelationshipInput) {
   const { type, fromId, toId } = await normalize(input);
+  const importance = input.importance ?? (await loadTypes()).get(type)?.default_importance ?? 3;
   return db.transaction(async (tx) => {
     const [row] = await tx
       .insert(relation)
@@ -280,6 +285,7 @@ export async function createRelationship(input: RelationshipInput) {
         label: input.label,
         note: input.note,
         disputed: input.disputed,
+        importance,
         startId: await insertDate(tx, input.start),
         endId: await insertDate(tx, input.end),
         state: "approved",
@@ -304,6 +310,7 @@ export async function updateRelationship(id: string, input: RelationshipInput) {
         label: input.label,
         note: input.note,
         disputed: input.disputed,
+        importance: input.importance ?? old.importance,
         startId: await insertDate(tx, input.start),
         endId: await insertDate(tx, input.end),
       })

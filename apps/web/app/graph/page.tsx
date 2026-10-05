@@ -5,7 +5,7 @@ import { apiGet } from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "Sơ đồ quan hệ",
-  description: "Sơ đồ trực quan quan hệ giữa nhân vật và chính thể trong lịch sử Việt Nam.",
+  description: "Sơ đồ trực quan quan hệ giữa nhân vật và chính thể trong lịch sử thế giới.",
 };
 
 type Props = { searchParams: Promise<{ node?: string }> };

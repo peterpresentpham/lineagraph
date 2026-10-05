@@ -58,6 +58,8 @@ export function Sources() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
+  // Serialized form as loaded for an edit; null when creating.
+  const [baseline, setBaseline] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["sources"],
@@ -85,15 +87,17 @@ export function Sources() {
   });
 
   const openEdit = (s: Source) => {
-    setEditingId(s.id);
-    setForm({
+    const loaded = {
       title: s.title,
       author: s.author ?? "",
       kind: s.kind ?? "",
       url: s.url ?? "",
       reliability: s.reliability?.toString() ?? "",
       note: s.note ?? "",
-    });
+    };
+    setEditingId(s.id);
+    setForm(loaded);
+    setBaseline(JSON.stringify(loaded));
     setOpen(true);
   };
 
@@ -106,6 +110,7 @@ export function Sources() {
           <Button
             onClick={() => {
               setEditingId(null);
+              setBaseline(null);
               setForm(emptyForm());
               setOpen(true);
             }}
@@ -170,6 +175,7 @@ export function Sources() {
         onOpenChange={setOpen}
         title={editingId ? "Sửa nguồn" : "Thêm nguồn"}
         saving={save.isPending}
+        unchanged={baseline !== null && JSON.stringify(form) === baseline}
         onSubmit={() => save.mutate()}
       >
         <Field label="Tiêu đề">

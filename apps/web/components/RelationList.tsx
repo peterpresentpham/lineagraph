@@ -24,7 +24,9 @@ export function RelationList({ relations }: RelationListProps) {
     <div className="flex flex-col gap-5">
       {[...groups.entries()].map(([category, items]) => (
         <div key={category}>
-          <h3 className="eyebrow mb-3 !text-muted-foreground">{categoryLabels[category] ?? category}</h3>
+          <h3 className="eyebrow !text-muted-foreground mb-3">
+            {categoryLabels[category] ?? category}
+          </h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {items.map((r) => (
               <Link

@@ -1375,6 +1375,7 @@ async function main() {
       start: t.start ?? null,
       end: t.end ?? null,
       seq: t.seq ?? null,
+      disputed: false,
       eras: (t.eras ?? []).map((e) => ({
         name: e.name,
         start: e.start ?? null,
@@ -1397,6 +1398,7 @@ async function main() {
       label: null,
       note: r.note ?? null,
       disputed: false,
+      importance: 3,
       start: null,
       end: null,
     });

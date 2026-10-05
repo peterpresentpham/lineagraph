@@ -1,11 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import { notFound } from "../errors";
 import { personDate, person } from "../schema/history";
 import { node } from "../schema/kg";
 import type { PersonInput } from "../validation";
-import { deleteDates, insertDate, parseDate } from "./dates";
-import { createNode, replaceNames, setAttributes, softDeleteNode } from "./node";
+import { deleteDates, insertDate, parseDate, toRow } from "./dates";
+import { createNode, setAttributes, softDeleteNode } from "./node";
 import { getNodeRelations } from "./relationships";
 import { normalizeText } from "./text";
 import type { Tx } from "../db";
@@ -143,9 +144,10 @@ export async function getPerson(slugOrId: string) {
         start_edtf: string | null;
         end_edtf: string | null;
         seq: number | null;
+        disputed: boolean;
       }>(
         sql`select t.id, t.polity_id, pn.slug as polity_slug, pm.name as polity_name, t.office_type,
-                   sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq
+                   sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed
             from history.tenure t
             left join kg.node pn on pn.id = t.polity_id and pn.deleted_at is null
             left join kg.name pm on pm.node_id = t.polity_id and pm.is_primary
@@ -179,6 +181,7 @@ export async function getPerson(slugOrId: string) {
       officeType: t.office_type,
       start: parseDate(t.start_edtf),
       end: parseDate(t.end_edtf),
+      disputed: t.disputed,
     })),
   };
 }
@@ -236,17 +239,87 @@ export async function createPerson(input: PersonInput) {
   });
 }
 
+// SQL for one date kind (birth/death) of an update, as CTEs of the single statement below.
+// The preferred row's fuzzy_date is updated in place (a delete + insert in one statement could
+// trip the unique "one preferred date per kind" index); a missing one is inserted; a cleared
+// one is deleted together with any stale non-preferred rows.
+function dateCtes(personId: string, kind: "birth" | "death", value: PersonInput["birth"]) {
+  const preferred = sql`select date_id from history.person_date
+    where person_id = ${personId}::uuid and kind = ${kind} and is_preferred`;
+  if (!value) {
+    return sql`,
+      ${sql.raw(kind)}_pd_del as (
+        delete from history.person_date
+        where person_id = ${personId}::uuid and kind = ${kind} returning date_id),
+      ${sql.raw(kind)}_fd_del as (
+        delete from kg.fuzzy_date where id in (select date_id from ${sql.raw(kind)}_pd_del))`;
+  }
+  const row = toRow(value);
+  const newId = randomUUID();
+  return sql`,
+    ${sql.raw(kind)}_fd_upd as (
+      update kg.fuzzy_date set edtf = ${row.edtf}, precision = ${row.precision},
+        earliest_jdn = ${row.earliestJdn}, latest_jdn = ${row.latestJdn},
+        source_calendar = ${row.sourceCalendar}
+      where id in (${preferred})),
+    ${sql.raw(kind)}_fd_ins as (
+      insert into kg.fuzzy_date (id, edtf, precision, earliest_jdn, latest_jdn, source_calendar)
+      select ${newId}::uuid, ${row.edtf}, ${row.precision}, ${row.earliestJdn}, ${row.latestJdn},
+        ${row.sourceCalendar}
+      from upd where not exists (${preferred}) returning id),
+    ${sql.raw(kind)}_pd_ins as (
+      insert into history.person_date (person_id, kind, date_id, is_preferred)
+      select ${personId}::uuid, ${kind}, id, true from ${sql.raw(kind)}_fd_ins),
+    ${sql.raw(kind)}_pd_del as (
+      delete from history.person_date
+      where person_id = ${personId}::uuid and kind = ${kind} and not is_preferred
+      returning date_id),
+    ${sql.raw(kind)}_fd_del as (
+      delete from kg.fuzzy_date where id in (select date_id from ${sql.raw(kind)}_pd_del))`;
+}
+
 export async function updatePerson(id: string, input: PersonInput) {
-  await resolveId(id);
-  await db.transaction(async (tx) => {
-    await tx
-      .update(person)
-      .set({ sex: input.sex, historicity: input.historicity, summary: input.summary })
-      .where(eq(person.id, id));
-    await replaceNames(tx, id, input.names, input.body);
-    await setAttributes(tx, id, input.attributes);
-    await setPersonDates(tx, id, input);
-  });
+  // The DB is a network hop away and every statement costs a full round trip, so the whole
+  // update (person row, names, attributes, both dates) is ONE statement of data-modifying CTEs:
+  // one round trip and atomic without an explicit transaction. Inserts select `from upd`, so a
+  // missing/deleted person inserts nothing and is reported as not found.
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("nhân vật");
+  const names = input.names.map((n) => ({
+    name: n.name,
+    name_normalized: normalizeText(n.name),
+    kind: n.kind,
+    language: n.language || null,
+    is_primary: n.isPrimary,
+  }));
+  const attributes = input.attributes.map((a, i) => ({ type: a.type, value: a.value, sort: i }));
+  const [result] = await db.execute<{ updated: number }>(sql`
+    with upd as (
+      update history.person set sex = ${input.sex}, historicity = ${input.historicity},
+        summary = ${input.summary}
+      where id = ${id}::uuid
+        and exists (select 1 from kg.node where id = ${id}::uuid and deleted_at is null)
+      returning id),
+    node_upd as (
+      update kg.node set updated_at = now()${input.body !== undefined ? sql`, body = ${input.body}` : sql``}
+      where id in (select id from upd)),
+    names_del as (delete from kg.name where node_id = ${id}::uuid),
+    names_ins as (
+      insert into kg.name (node_id, name, name_normalized, kind, language, is_primary)
+      select ${id}::uuid, x.name, x.name_normalized, x.kind, x.language, x.is_primary
+      from jsonb_to_recordset(${JSON.stringify(names)}::jsonb) as x(
+        name text, name_normalized text, kind text, language text, is_primary boolean),
+        upd),
+    attr_del as (delete from kg.attribute where node_id = ${id}::uuid),
+    attr_ins as (
+      insert into kg.attribute (node_id, type, value, sort_order)
+      select ${id}::uuid, x.type, x.value, x.sort
+      from jsonb_to_recordset(${JSON.stringify(attributes)}::jsonb) as x(
+        type text, value text, sort int),
+        upd)
+    ${dateCtes(id, "birth", input.birth)}
+    ${dateCtes(id, "death", input.death)}
+    select count(*)::int as updated from upd`);
+  if (!result?.updated) throw notFound("nhân vật");
 }
 
 export async function deletePerson(id: string) {

@@ -39,3 +39,12 @@ export const categoryLabels: Record<string, string> = {
 };
 
 export const nodeKindLabels: Record<string, string> = { person: "Nhân vật", polity: "Chính thể" };
+
+// Importance of a relationship (1-5), most important first; used by every importance picker.
+export const importanceLevels: [number, string][] = [
+  [5, "Cốt lõi (luôn hiện)"],
+  [4, "Quan trọng"],
+  [3, "Thông thường"],
+  [2, "Phụ"],
+  [1, "Rất phụ"],
+];

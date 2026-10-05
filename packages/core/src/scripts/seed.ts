@@ -26,17 +26,19 @@ const polityTypes = {
   republic: "Cộng hòa",
 };
 const officeTypes = {
-  emperor: { label: "Hoàng đế", category: "ruler", isSovereign: true },
-  king: { label: "Vua", category: "ruler", isSovereign: true },
-  lord: { label: "Chúa", category: "ruler", isSovereign: false },
-  regent: { label: "Nhiếp chính", category: "ruler", isSovereign: false },
-  chancellor: { label: "Tể tướng", category: "court", isSovereign: false },
-  general: { label: "Tướng quân", category: "military", isSovereign: false },
-  mandarin: { label: "Quan lại", category: "court", isSovereign: false },
-  other: { label: "Khác", category: "other", isSovereign: false },
+  emperor: { label: "Hoàng đế", category: "ruler", isSovereign: true, importance: 5 },
+  king: { label: "Vua", category: "ruler", isSovereign: true, importance: 5 },
+  duke: { label: "Công", category: "ruler", isSovereign: false, importance: 5 },
+  lord: { label: "Chúa", category: "ruler", isSovereign: false, importance: 5 },
+  regent: { label: "Nhiếp chính", category: "ruler", isSovereign: false, importance: 3 },
+  chancellor: { label: "Tể tướng", category: "court", isSovereign: false, importance: 3 },
+  general: { label: "Tướng quân", category: "military", isSovereign: false, importance: 2 },
+  mandarin: { label: "Quan lại", category: "court", isSovereign: false, importance: 2 },
+  other: { label: "Khác", category: "other", isSovereign: false, importance: 2 },
 } as const;
 const successionModes = {
   hereditary: "Cha truyền con nối",
+  fraternal: "Anh em truyền ngôi",
   abdication: "Nhường ngôi",
   usurpation: "Cướp ngôi",
   conquest: "Chinh phục",
@@ -322,6 +324,7 @@ await db
       code,
       category: o.category,
       isSovereign: o.isSovereign,
+      importance: o.importance,
     })),
   )
   .onConflictDoNothing();

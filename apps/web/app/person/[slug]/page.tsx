@@ -16,7 +16,7 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const person = await apiGet<PersonDetail>(`/persons/${(await params).slug}`);
-  const description = person.summary ?? `${person.name} trong phả hệ lịch sử Việt Nam.`;
+  const description = person.summary ?? `${person.name} trong phả hệ lịch sử thế giới.`;
   return {
     title: person.name,
     description,
@@ -41,7 +41,9 @@ export default async function PersonPage({ params }: Props) {
         hero
         eyebrow="Nhân vật"
         title={person.name}
-        leading={<Monogram name={person.name} seed={person.slug} size="lg" className="hidden sm:grid" />}
+        leading={
+          <Monogram name={person.name} seed={person.slug} size="lg" className="hidden sm:grid" />
+        }
         description={lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}
         meta={
           <>
@@ -68,7 +70,9 @@ export default async function PersonPage({ params }: Props) {
 
       {person.summary && (
         <Section title="Giới thiệu">
-          <p className="max-w-prose-page whitespace-pre-line text-lg leading-relaxed">{person.summary}</p>
+          <p className="max-w-prose-page whitespace-pre-line text-lg leading-relaxed">
+            {person.summary}
+          </p>
         </Section>
       )}
 
@@ -101,7 +105,8 @@ export default async function PersonPage({ params }: Props) {
                     </>
                   )}
                 </div>
-                <div className="text-muted-foreground text-sm">
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  {t.disputed && <Badge variant="warning">Còn tranh cãi</Badge>}
                   {t.start || t.end ? `${t.start?.label ?? "?"} – ${t.end?.label ?? "?"}` : ""}
                 </div>
               </div>

@@ -2,8 +2,11 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import {
+  Badge,
   Button,
+  Checkbox,
   Input,
+  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -35,6 +38,7 @@ type Row = {
   start: DateValue | null;
   end: DateValue | null;
   seq: number | null;
+  disputed: boolean;
 };
 type Era = { name: string; start: DateInput | null; end: DateInput | null };
 type Form = {
@@ -43,6 +47,7 @@ type Form = {
   officeType: string;
   successionMode: string;
   seq: string;
+  disputed: boolean;
   start: DateInput | null;
   end: DateInput | null;
   eras: Era[];
@@ -53,6 +58,7 @@ const emptyForm = (personId: string | null, polityId: string | null): Form => ({
   officeType: "emperor",
   successionMode: "",
   seq: "",
+  disputed: false,
   start: null,
   end: null,
   eras: [],
@@ -73,6 +79,8 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form, setForm] = useState<Form>(emptyForm(personId ?? null, polityId ?? null));
+  // Serialized form as loaded for an edit; null when creating.
+  const [baseline, setBaseline] = useState<string | null>(null);
 
   const filter = personId ? `personId=${personId}` : `polityId=${polityId}`;
   const { data } = useQuery({
@@ -92,6 +100,7 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
         officeType: form.officeType,
         successionMode: form.successionMode || null,
         seq: form.seq === "" ? null : Number(form.seq),
+        disputed: form.disputed,
         start: cleanDate(form.start),
         end: cleanDate(form.end),
         eras: form.eras.map((e) => ({ ...e, start: cleanDate(e.start), end: cleanDate(e.end) })),
@@ -108,6 +117,7 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
 
   const openCreate = () => {
     setEditing(null);
+    setBaseline(null);
     setForm(emptyForm(personId ?? null, polityId ?? null));
     setOpen(true);
   };
@@ -119,17 +129,18 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
         officeType: string;
         successionMode: string | null;
         seq: number | null;
+        disputed: boolean;
         start: DateValue | null;
         end: DateValue | null;
         eras: { name: string; start: DateValue | null; end: DateValue | null }[];
       }>(`/tenures/${row.id}`);
-      setEditing(row);
-      setForm({
+      const loaded: Form = {
         personId: d.personId,
         polityId: d.polityId,
         officeType: d.officeType,
         successionMode: d.successionMode ?? "",
         seq: d.seq?.toString() ?? "",
+        disputed: d.disputed,
         start: toDateInput(d.start),
         end: toDateInput(d.end),
         eras: d.eras.map((e) => ({
@@ -137,7 +148,10 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
           start: toDateInput(e.start),
           end: toDateInput(e.end),
         })),
-      });
+      };
+      setEditing(row);
+      setForm(loaded);
+      setBaseline(JSON.stringify(loaded));
       setOpen(true);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -186,6 +200,11 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
                 </TableCell>
                 <TableCell>
                   {t.start || t.end ? `${t.start?.label ?? "?"} – ${t.end?.label ?? "?"}` : ""}
+                  {t.disputed && (
+                    <Badge variant="warning" className="ml-2">
+                      Tranh cãi
+                    </Badge>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
@@ -224,6 +243,7 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
         onOpenChange={setOpen}
         title={editing ? "Sửa chức vụ" : "Thêm chức vụ"}
         saving={save.isPending}
+        unchanged={baseline !== null && JSON.stringify(form) === baseline}
         onSubmit={() => save.mutate()}
       >
         <Field label="Nhân vật">
@@ -311,6 +331,13 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
           value={form.end}
           onChange={(end) => setForm({ ...form, end })}
         />
+        <Label className="flex items-center gap-2 font-normal">
+          <Checkbox
+            checked={form.disputed}
+            onCheckedChange={(c) => setForm({ ...form, disputed: c === true })}
+          />
+          Còn tranh cãi (thời gian hoặc việc giữ chức vụ này chưa chắc chắn giữa các nguồn)
+        </Label>
         <Field label="Niên hiệu">
           <div className="flex flex-col gap-2">
             {form.eras.map((era, i) => (

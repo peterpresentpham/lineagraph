@@ -32,14 +32,14 @@ export default async function HomePage() {
 
   return (
     <>
-      <div className="bg-aurora relative overflow-hidden rounded-3xl border p-6 shadow-card sm:p-10 lg:p-14">
+      <div className="bg-aurora shadow-card relative overflow-hidden rounded-3xl border p-6 sm:p-10 lg:p-14">
         <div className="bg-dots pointer-events-none absolute inset-0 opacity-50 [mask-image:linear-gradient(to_bottom_left,black,transparent_60%)]" />
         <div className="animate-fade-up relative max-w-3xl">
           <p className="eyebrow">Sử Phả</p>
           <h1 className="text-display mt-3">
-            Lịch sử Việt Nam qua từng <span className="text-gradient">dòng phả hệ</span>
+            Lịch sử thế giới qua từng <span className="text-gradient">dòng phả hệ</span>
           </h1>
-          <p className="text-muted-foreground mt-4 max-w-xl text-lg text-pretty">
+          <p className="text-muted-foreground mt-4 max-w-xl text-pretty text-lg">
             Tra cứu nhân vật, triều đại và mối quan hệ giữa họ: ai là cha của ai, ai kế vị ai, hai
             người có họ hàng thế nào.
           </p>
@@ -111,7 +111,11 @@ export default async function HomePage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {polities.slice(0, 6).map((p) => (
-              <PolityCard key={p.id} polity={p} typeLabel={typeLabels[p.polityType] ?? p.polityType} />
+              <PolityCard
+                key={p.id}
+                polity={p}
+                typeLabel={typeLabels[p.polityType] ?? p.polityType}
+              />
             ))}
           </div>
         )}

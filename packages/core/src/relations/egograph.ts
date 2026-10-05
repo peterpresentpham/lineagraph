@@ -1,4 +1,5 @@
-export type EgoLink = { a: string; b: string; rank: number };
+/** `rank`: lower comes first. `importance` (1-5) is what `minImportance` filters on. */
+export type EgoLink = { a: string; b: string; rank: number; importance?: number };
 
 export type EgoOptions = {
   rootIds: string[];
@@ -7,6 +8,8 @@ export type EgoOptions = {
   depth: number;
   /** Maximum number of NEW nodes to return. */
   limit: number;
+  /** Only walk through links at or above this importance; weaker ones stay "hidden". */
+  minImportance?: number;
   fetchLinks: (ids: string[]) => Promise<EgoLink[]>;
 };
 
@@ -17,6 +20,7 @@ export async function egoBfs({
   known = new Set(),
   depth,
   limit,
+  minImportance = 1,
   fetchLinks,
 }: EgoOptions): Promise<EgoResult> {
   const seen = new Set<string>([...known, ...rootIds]);
@@ -25,7 +29,7 @@ export async function egoBfs({
   let truncated = false;
 
   for (let layer = 0; layer < depth && frontier.length > 0; layer++) {
-    const links = await fetchLinks(frontier);
+    const links = (await fetchLinks(frontier)).filter((l) => (l.importance ?? 5) >= minImportance);
     const inFrontier = new Set(frontier);
     // Best (lowest) rank at which each unseen node is reached, in discovery order.
     const candidates = new Map<string, number>();
