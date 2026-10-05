@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@lineagraph/ui";
+import { PageHeader } from "@/components/PageHeader";
 import { NodePicker } from "@/components/NodePicker";
 import { RelationList } from "@/components/RelationList";
 import { Empty, Section } from "@/components/Section";
@@ -38,14 +39,18 @@ export default async function RelationsPage({ searchParams }: Props) {
 
   return (
     <>
-      <h1>Tìm mối quan hệ</h1>
-      <p className="text-muted-foreground mb-6 mt-1">
-        Chọn hai nhân vật hoặc chính thể để xem họ có quan hệ gì, trực tiếp hay qua những ai.
-      </p>
-      <form id="finder" className="flex flex-col gap-4 sm:flex-row sm:items-end">
+      <PageHeader
+        eyebrow="Khám phá"
+        title="Tìm mối quan hệ"
+        description="Chọn hai nhân vật hoặc chính thể để xem họ có quan hệ gì, trực tiếp hay qua những ai."
+      />
+      <form
+        id="finder"
+        className="surface mt-8 flex flex-col gap-4 p-5 sm:flex-row sm:items-end"
+      >
         <NodePicker key={`a-${initA?.slug}`} name="a" label="Người thứ nhất" initial={initA} />
         <NodePicker key={`b-${initB?.slug}`} name="b" label="Người thứ hai" initial={initB} />
-        <Button type="submit" className="h-11">
+        <Button type="submit" size="lg">
           Tìm
         </Button>
       </form>

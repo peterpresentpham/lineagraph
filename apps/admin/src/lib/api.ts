@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4200";
 const TOKEN_KEY = "lineagraph.admin.token";
 
 export const tokenStore = {

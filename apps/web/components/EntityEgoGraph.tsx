@@ -11,7 +11,7 @@ import { renderNodeLink } from "./GraphClient";
 const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoGraph), {
   ssr: false,
   loading: () => (
-    <div className="text-muted-foreground grid h-[420px] place-items-center rounded-md border">
+    <div className="text-muted-foreground grid h-[420px] place-items-center rounded-2xl border">
       Đang dựng sơ đồ...
     </div>
   ),
@@ -33,7 +33,7 @@ export function EntityEgoGraph({ slug }: Props) {
       <button
         type="button"
         onClick={() => setShow(true)}
-        className="text-muted-foreground hover:border-primary hover:text-foreground flex h-32 w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed transition-colors"
+        className="text-muted-foreground hover:border-primary hover:text-foreground bg-dots flex h-32 w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed transition-colors"
       >
         <Network className="size-5" />
         Xem sơ đồ quan hệ

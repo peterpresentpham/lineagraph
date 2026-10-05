@@ -164,7 +164,7 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
           <Plus /> Thêm chức vụ
         </Button>
       </div>
-      <div className="bg-card rounded-[var(--radius)] border">
+      <div className="bg-card rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -228,7 +228,7 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
       >
         <Field label="Nhân vật">
           {personId ? (
-            <div className="bg-muted flex h-11 items-center rounded-[var(--radius)] border px-3 text-[15px]">
+            <div className="bg-muted flex h-11 items-center rounded-xl border px-3 text-[15px]">
               {ownerName}
             </div>
           ) : (
@@ -242,7 +242,7 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
         </Field>
         <Field label="Chính thể" hint="Bỏ trống nếu chức vụ không thuộc chính thể nào.">
           {polityId ? (
-            <div className="bg-muted flex h-11 items-center rounded-[var(--radius)] border px-3 text-[15px]">
+            <div className="bg-muted flex h-11 items-center rounded-xl border px-3 text-[15px]">
               {ownerName}
             </div>
           ) : (

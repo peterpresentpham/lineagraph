@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
+import { Monogram } from "@/components/Monogram";
+import { PageHeader } from "@/components/PageHeader";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { PersonCard } from "@/components/PersonCard";
 import { RelationCompare } from "@/components/RelationCompare";
@@ -35,24 +37,27 @@ export default async function PersonPage({ params }: Props) {
 
   return (
     <>
-      <div>
-        <h1 className="text-3xl">{person.name}</h1>
-        <p className="text-muted-foreground mt-1">
-          {lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          <Badge variant="neutral">{sexLabels[person.sex]}</Badge>
-          <Badge variant={person.historicity === "historical" ? "success" : "warning"}>
-            {historicityLabels[person.historicity]}
-          </Badge>
-        </div>
-      </div>
+      <PageHeader
+        hero
+        eyebrow="Nhân vật"
+        title={person.name}
+        leading={<Monogram name={person.name} seed={person.slug} size="lg" className="hidden sm:grid" />}
+        description={lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}
+        meta={
+          <>
+            <Badge variant="neutral">{sexLabels[person.sex]}</Badge>
+            <Badge variant={person.historicity === "historical" ? "success" : "warning"}>
+              {historicityLabels[person.historicity]}
+            </Badge>
+          </>
+        }
+      />
 
       {otherNames.length > 0 && (
         <Section title="Các tên khác">
           <ul className="flex flex-wrap gap-2">
             {otherNames.map((n, i) => (
-              <li key={i} className="bg-card rounded-md border px-3 py-1 text-sm">
+              <li key={i} className="bg-card rounded-full border px-3.5 py-1 text-sm">
                 {n.name}{" "}
                 <span className="text-muted-foreground">· {nameKinds[n.kind] ?? n.kind}</span>
               </li>
@@ -63,7 +68,7 @@ export default async function PersonPage({ params }: Props) {
 
       {person.summary && (
         <Section title="Giới thiệu">
-          <p className="whitespace-pre-line leading-relaxed">{person.summary}</p>
+          <p className="max-w-prose-page whitespace-pre-line text-lg leading-relaxed">{person.summary}</p>
         </Section>
       )}
 
@@ -75,7 +80,7 @@ export default async function PersonPage({ params }: Props) {
 
       {person.body && (
         <Section title="Tiểu sử">
-          <p className="whitespace-pre-line leading-relaxed">{person.body}</p>
+          <p className="max-w-prose-page whitespace-pre-line leading-relaxed">{person.body}</p>
         </Section>
       )}
 
@@ -85,7 +90,7 @@ export default async function PersonPage({ params }: Props) {
             {person.tenures.map((t) => (
               <div
                 key={t.id}
-                className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border p-4"
+                className="surface flex flex-wrap items-center justify-between gap-2 p-4"
               >
                 <div>
                   <span className="font-semibold">{offices[t.officeType] ?? t.officeType}</span>
@@ -122,7 +127,7 @@ export default async function PersonPage({ params }: Props) {
 
       {person.siblings.length > 0 && (
         <Section title="Anh chị em">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {person.siblings.map((p) => (
               <PersonCard key={p.id} person={p} />
             ))}
@@ -134,7 +139,7 @@ export default async function PersonPage({ params }: Props) {
         <Section title="Nguồn tư liệu">
           <ul className="flex flex-col gap-2">
             {citations.map((c) => (
-              <li key={c.id} className="bg-card rounded-[var(--radius)] border p-4 text-sm">
+              <li key={c.id} className="surface p-4 text-sm">
                 <div className="font-medium">
                   {c.source.url ? (
                     <a href={c.source.url} target="_blank" rel="noreferrer">

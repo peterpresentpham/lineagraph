@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { SearchResult } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4200";
 
 type Props = {
   name: string;
@@ -41,7 +41,7 @@ export function NodePicker({ name, label, initial, onSelect }: Props) {
     <div className="relative flex-1">
       <label className="text-muted-foreground mb-1 block text-sm">{label}</label>
       {chosen ? (
-        <div className="bg-card flex h-11 items-center justify-between rounded-md border px-3">
+        <div className="bg-card flex h-11 items-center justify-between rounded-xl border px-3.5">
           <span className="font-medium">{chosen.name}</span>
           <input type="hidden" name={name} value={chosen.slug} />
           <button
@@ -64,10 +64,10 @@ export function NodePicker({ name, label, initial, onSelect }: Props) {
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             placeholder="Gõ tên để tìm..."
-            className="border-input bg-background focus:border-primary h-11 w-full rounded-md border px-3 outline-none"
+            className="border-input bg-background focus:border-ring focus:ring-ring/25 h-11 w-full rounded-xl border px-3.5 outline-none transition focus:ring-4"
           />
           {open && results.length > 0 && (
-            <ul className="bg-popover absolute z-30 mt-1 w-full overflow-hidden rounded-md border shadow-lg">
+            <ul className="bg-popover absolute z-30 mt-1.5 w-full overflow-hidden rounded-xl border shadow-lg">
               {results.slice(0, 8).map((r) => (
                 <li key={r.id}>
                   <button

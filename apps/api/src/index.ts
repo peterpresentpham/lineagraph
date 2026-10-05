@@ -20,7 +20,7 @@ const app = express();
 app.use(
   cors({
     origin: [
-      process.env.WEB_ORIGIN ?? "http://localhost:3000",
+      process.env.WEB_ORIGIN ?? "http://localhost:3200",
       process.env.ADMIN_ORIGIN ?? "http://localhost:4100",
     ],
   }),
@@ -44,7 +44,7 @@ app.use(reviewRouter);
 
 app.use(errorHandler);
 
-const port = process.env.PORT ? Number(process.env.PORT) : 4000;
+const port = process.env.PORT ? Number(process.env.PORT) : 4200;
 app.listen(port, () => {
   console.log(`lineagraph api listening on :${port}`);
 });

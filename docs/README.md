@@ -8,6 +8,7 @@ khi hai bản lệch nhau, coi bản ở đây là bản đang dùng để code.
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`design.md`](design.md)                   | Ý tưởng và thiết kế chi tiết: mục tiêu, mô hình khái niệm, **cấu trúc database và khả năng mở rộng (mục 5)**, thuật toán, chức năng chọn hai người (mục 7.7), học tập, kiến trúc, nguồn dữ liệu, rủi ro, MVP và lộ trình (mục 14) |
 | [`database.md`](database.md)               | **Sơ đồ quan hệ (ER) của database hiện tại**, vẽ bằng Mermaid, theo schema Drizzle đang chạy: lõi `kg.node`/`kg.relation`, lớp `history`, nguồn và trích dẫn, lớp học, danh mục, các chỗ chưa có khoá ngoại                       |
+| [`theme.md`](theme.md)                     | **Theme và hệ thống thiết kế dùng chung**: bốn lớp (nguyên liệu, ý nghĩa, mặc định, tiện ích), thang màu, khoảng cách, bo góc, đổ bóng, chữ, cách dùng lại cho app mới |
 | [`services-and-ui.md`](services-and-ui.md) | Tách kiến trúc thành 3 service (backend, app user, app admin), danh sách đầy đủ trang cho từng app, nhóm API ở backend, khớp với lộ trình 8 tuần                                                                                  |
 
 **Nên đọc theo thứ tự:** `design.md` mục 3 (nguyên tắc) → mục 5 (cơ sở dữ liệu) → mục 7.7 (chức

@@ -51,7 +51,7 @@ export function RelationsPanel({ node }: Props) {
         </Button>
       </div>
       {data && data.length === 0 && (
-        <p className="text-muted-foreground rounded-[var(--radius)] border border-dashed p-8 text-center">
+        <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center">
           Chưa có quan hệ nào.
         </p>
       )}
@@ -59,7 +59,7 @@ export function RelationsPanel({ node }: Props) {
         {[...groups.entries()].map(([category, items]) => (
           <section key={category}>
             <h3 className="text-muted-foreground mb-2">{categoryLabels[category] ?? category}</h3>
-            <div className="bg-card rounded-[var(--radius)] border">
+            <div className="bg-card rounded-xl border">
               {items.map((r, i) => {
                 const { label, other } = seen(r);
                 const variant = r.variant

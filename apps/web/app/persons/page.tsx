@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@lineagraph/ui";
+import { PageHeader } from "@/components/PageHeader";
 import { PersonCard } from "@/components/PersonCard";
 import { Empty } from "@/components/Section";
 import { apiGet } from "@/lib/api";
@@ -23,13 +24,16 @@ export default async function PersonsPage({ searchParams }: Props) {
 
   return (
     <>
-      <h1>Nhân vật</h1>
-      <p className="text-muted-foreground mt-1">{total} nhân vật, sắp xếp theo tên.</p>
-      <div className="mt-6">
+      <PageHeader
+        eyebrow="Tra cứu"
+        title="Nhân vật"
+        description={`${total} nhân vật, sắp xếp theo tên.`}
+      />
+      <div className="mt-8">
         {items.length === 0 ? (
           <Empty>Chưa có dữ liệu.</Empty>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((p) => (
               <PersonCard key={p.id} person={p} />
             ))}

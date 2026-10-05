@@ -42,7 +42,7 @@ export function RelationGraph({
 
   if (data.nodes.length === 0) {
     return (
-      <p className="text-muted-foreground rounded-md border border-dashed p-8 text-center">
+      <p className="text-muted-foreground rounded-2xl border border-dashed p-8 text-center">
         {emptyText}
       </p>
     );
@@ -60,7 +60,7 @@ export function RelationGraph({
       <div className="mb-3">
         <TypeFilter edges={data.edges} hidden={hiddenTypes} onToggle={toggle} />
       </div>
-      <div className="bg-card overflow-hidden rounded-md border" style={{ height }}>
+      <div className="bg-card shadow-card overflow-hidden rounded-2xl border" style={{ height }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}

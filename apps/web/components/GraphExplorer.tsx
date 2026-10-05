@@ -10,7 +10,7 @@ import { renderNodeLink } from "./GraphClient";
 const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoGraph), {
   ssr: false,
   loading: () => (
-    <div className="text-muted-foreground grid h-96 place-items-center rounded-md border">
+    <div className="text-muted-foreground grid h-96 place-items-center rounded-2xl border">
       Đang dựng sơ đồ...
     </div>
   ),
@@ -52,7 +52,7 @@ export function GraphExplorer({ initial }: Props) {
             onRootChange={onRecenter}
           />
         ) : (
-          <p className="text-muted-foreground rounded-md border border-dashed p-10 text-center">
+          <p className="text-muted-foreground bg-dots rounded-2xl border border-dashed p-10 text-center">
             Chọn một nhân vật hoặc chính thể để xem sơ đồ những người liên quan.
           </p>
         )}

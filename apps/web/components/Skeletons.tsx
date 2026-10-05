@@ -31,7 +31,7 @@ type SectionSkeletonProps = {
 // Mirrors the real <Section>: a heading plus its divider, wrapping loading content for that section.
 export function SectionSkeleton({ headingClassName = "w-28", children }: SectionSkeletonProps) {
   return (
-    <section className="mt-8">
+    <section className="mt-section">
       <Skeleton className={cn("h-6", headingClassName)} />
       <Skeleton className="mb-4 mt-2 h-px w-full" />
       {children}
@@ -55,7 +55,7 @@ export function GridSkeleton({
   return (
     <div className={cn("grid gap-3", gridClassName, className)}>
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className={cn("rounded-[var(--radius)]", itemClassName)} />
+        <Skeleton key={i} className={cn("rounded-xl", itemClassName)} />
       ))}
     </div>
   );
@@ -71,7 +71,7 @@ export function RowsSkeleton({ count, itemClassName = "h-16", className }: RowsS
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className={cn("rounded-[var(--radius)]", itemClassName)} />
+        <Skeleton key={i} className={cn("rounded-xl", itemClassName)} />
       ))}
     </div>
   );

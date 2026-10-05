@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
 
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+const API_URL = process.env.API_URL ?? "http://localhost:4200";
 const PAGE_SIZE = 200; // server caps `limit` at 200 regardless of what we ask for
 const MAX_PERSONS = 20_000; // safety bound on the pagination loop below
 

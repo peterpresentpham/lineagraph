@@ -24,13 +24,13 @@ export function RelationList({ relations }: RelationListProps) {
     <div className="flex flex-col gap-5">
       {[...groups.entries()].map(([category, items]) => (
         <div key={category}>
-          <h3 className="text-muted-foreground mb-2">{categoryLabels[category] ?? category}</h3>
+          <h3 className="eyebrow mb-3 !text-muted-foreground">{categoryLabels[category] ?? category}</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {items.map((r) => (
               <Link
                 key={r.id}
                 href={`/${r.other.kind}/${r.other.slug}`}
-                className="bg-card block rounded-md border px-4 py-3 no-underline transition-shadow hover:no-underline hover:shadow-md"
+                className="surface-interactive block px-4 py-3"
               >
                 <div className="text-muted-foreground text-xs">
                   {r.typeLabel}

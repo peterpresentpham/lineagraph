@@ -30,7 +30,7 @@ export function Dashboard() {
           <Link key={key} to={to} className="no-underline hover:no-underline">
             <Card className="no-underline transition-shadow hover:no-underline hover:shadow-md">
               <CardContent className="flex items-center gap-4 p-5">
-                <div className="bg-accent grid size-11 place-items-center rounded-[var(--radius)] text-[var(--primary)]">
+                <div className="bg-accent grid size-11 place-items-center rounded-xl text-[var(--primary)]">
                   <Icon className="size-5" />
                 </div>
                 <div>

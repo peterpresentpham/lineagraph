@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import type { RegistryItem } from "./types";
 
-const API_URL = process.env.API_URL ?? "http://localhost:4000";
+const API_URL = process.env.API_URL ?? "http://localhost:4200";
 
 // Public read-only API; the web app never sends credentials.
 export async function apiGet<T>(path: string): Promise<T> {

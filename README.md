@@ -39,8 +39,8 @@ pnpm db:migrate        # tạo schema và bảng
 pnpm db:seed           # nạp các bảng danh mục (loại tên, chức vụ...)
 pnpm db:create-admin   # tạo tài khoản admin từ ADMIN_EMAIL / ADMIN_PASSWORD (chạy lại để đổi mật khẩu)
 
-pnpm dev:api      # http://localhost:4000 — đọc công khai; ghi cần token admin
-pnpm dev:web      # http://localhost:3000 — Next.js, app cho người dùng (gọi API qua API_URL)
+pnpm dev:api      # http://localhost:4200 — đọc công khai; ghi cần token admin
+pnpm dev:web      # http://localhost:3200 — Next.js, app cho người dùng (gọi API qua API_URL)
 pnpm dev:admin    # http://localhost:4100 — Vite, app quản trị (đăng nhập bằng tài khoản ở trên)
 pnpm import:wikidata [--apply]   # chạy tay, mặc định dry-run
 ```

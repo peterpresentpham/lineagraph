@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import { ThemeToggle, cn } from "@lineagraph/ui";
+import { Logo } from "@/components/Logo";
 import { nav } from "@/lib/nav";
 
 function SearchForm() {
@@ -15,7 +16,7 @@ function SearchForm() {
           name="q"
           type="search"
           placeholder="Tìm nhân vật, triều đại..."
-          className="border-input bg-background focus:border-primary h-10 w-full rounded-sm border pl-9 pr-3 text-sm outline-none"
+          className="border-input bg-muted/60 placeholder:text-muted-foreground focus:border-ring focus:bg-background focus:ring-ring/25 h-10 w-full rounded-xl border pl-9 pr-3 text-sm outline-none transition focus:ring-4"
         />
       </label>
     </form>
@@ -27,25 +28,20 @@ function SearchForm() {
 export function SiteHeader() {
   const pathname = usePathname();
   return (
-    <header className="border-t-primary bg-card/95 sticky top-0 z-30 border-b border-t-[3px] backdrop-blur">
-      <div className="flex h-14 items-center gap-3 px-4 md:px-8">
-        <Link
-          href="/"
-          className="text-foreground font-serif text-lg font-semibold no-underline md:hidden"
-        >
-          Sử Phả
-        </Link>
-        <div className="hidden w-full max-w-xs md:block">
+    <header className="glass sticky top-0 z-30 border-b">
+      <div className="h-header container-page flex items-center gap-3">
+        <Logo className="md:hidden" />
+        <div className="hidden w-full max-w-md md:block">
           <SearchForm />
         </div>
         <div className="ml-auto flex items-center">
           <ThemeToggle />
         </div>
       </div>
-      <div className="px-3 pb-2 md:hidden">
+      <div className="px-gutter pb-2 md:hidden">
         <SearchForm />
       </div>
-      <nav className="flex gap-1 overflow-x-auto px-3 pb-2 md:hidden">
+      <nav className="px-gutter flex gap-1 overflow-x-auto pb-2 md:hidden">
         {nav.map(({ href, label }) => {
           const active = pathname?.startsWith(href) ?? false;
           return (
@@ -53,8 +49,8 @@ export function SiteHeader() {
               key={href}
               href={href}
               className={cn(
-                "text-muted-foreground shrink-0 rounded-sm px-3 py-1.5 text-sm font-medium no-underline",
-                active && "bg-accent text-foreground",
+                "text-muted-foreground shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium no-underline",
+                active && "bg-accent text-accent-foreground",
               )}
             >
               {label}

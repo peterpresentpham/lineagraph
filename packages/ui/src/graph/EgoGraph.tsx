@@ -273,7 +273,7 @@ function Inner({
           <select
             value={depth}
             onChange={(e) => setDepth(Number(e.target.value))}
-            className="border-input bg-background text-foreground h-8 rounded-sm border px-2"
+            className="border-input bg-background text-foreground h-8 rounded-lg border px-2"
           >
             {[1, 2, 3].map((d) => (
               <option key={d} value={d}>
@@ -330,7 +330,7 @@ function Inner({
       <div className="mb-3">
         <TypeFilter edges={[...graphEdges.values()]} hidden={hiddenTypes} onToggle={toggleType} />
       </div>
-      <div className="bg-card relative overflow-hidden rounded-md border" style={{ height }}>
+      <div className="bg-card shadow-card relative overflow-hidden rounded-2xl border" style={{ height }}>
         {status !== "ready" && (
           <div className="bg-card/80 text-muted-foreground absolute inset-0 z-10 grid place-items-center">
             {status === "loading" ? "Đang dựng sơ đồ..." : "Không tải được sơ đồ. Thử lại sau."}

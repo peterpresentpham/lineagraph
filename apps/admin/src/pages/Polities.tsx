@@ -52,7 +52,7 @@ export function Polities() {
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
-      <div className="bg-card rounded-[var(--radius)] border">
+      <div className="bg-card rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>

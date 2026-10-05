@@ -1,7 +1,8 @@
+import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteSidebar } from "@/components/SiteSidebar";
 import { SITE_URL } from "@/lib/site";
-import { themeInitScript } from "@lineagraph/ui";
+import { fontsHref, themeInitScript } from "@lineagraph/ui";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -27,7 +28,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#9c2a1c",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbfaf8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0f15" },
+  ],
 };
 
 type Props = { children: React.ReactNode };
@@ -39,19 +43,16 @@ export default function RootLayout({ children }: Props) {
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Public+Sans:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
+        <link href={fontsHref} rel="stylesheet" />
       </head>
       <body>
+        <div className="bg-brand-gradient fixed inset-x-0 top-0 z-50 h-0.5" aria-hidden />
         <div className="flex min-h-screen flex-col md:flex-row">
           <SiteSidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <SiteHeader />
-            <main className="max-w-360 mx-auto w-full flex-1 px-4 py-8 sm:px-6 lg:px-10">
-              {children}
-            </main>
+            <main className="container-page flex-1 py-8 md:py-10">{children}</main>
+            <SiteFooter />
           </div>
         </div>
       </body>

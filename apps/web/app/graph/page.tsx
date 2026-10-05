@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageHeader } from "@/components/PageHeader";
 import { GraphExplorer } from "@/components/GraphExplorer";
 import { apiGet } from "@/lib/api";
 
@@ -28,11 +29,12 @@ export default async function GraphPage({ searchParams }: Props) {
   }
   return (
     <>
-      <h1>Sơ đồ quan hệ</h1>
-      <p className="text-muted-foreground mb-6 mt-1">
-        Chọn một nhân vật hoặc chính thể để xem những ai liên quan quanh họ. Mỗi lần hiện một số
-        lượng vừa phải, bấm “+N” hoặc “Tải thêm” để mở rộng.
-      </p>
+      <PageHeader
+        eyebrow="Khám phá"
+        title="Sơ đồ quan hệ"
+        description="Chọn một nhân vật hoặc chính thể để xem những ai liên quan quanh họ. Mỗi lần hiện một số lượng vừa phải, bấm “+N” hoặc “Tải thêm” để mở rộng."
+        className="mb-8"
+      />
       <GraphExplorer key={initial?.slug ?? "none"} initial={initial} />
     </>
   );

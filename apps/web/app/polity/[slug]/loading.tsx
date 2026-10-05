@@ -11,7 +11,7 @@ export default function Loading() {
       </div>
 
       <SectionSkeleton headingClassName="w-28">
-        <Skeleton className="h-64 rounded-[var(--radius)]" />
+        <Skeleton className="h-64 rounded-xl" />
       </SectionSkeleton>
 
       <SectionSkeleton headingClassName="w-56">

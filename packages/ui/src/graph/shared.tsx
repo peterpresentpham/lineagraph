@@ -238,10 +238,10 @@ export function placeAround(anchor: Pos, count: number, existing: Pos[]): Pos[] 
 }
 
 const categoryColor: Record<string, string> = {
-  family: "var(--ink-soft)",
-  politics: "var(--vermilion)",
-  personal: "var(--info)",
-  other: "var(--ink-faint)",
+  family: "var(--info)",
+  politics: "var(--primary)",
+  personal: "var(--highlight)",
+  other: "var(--muted-foreground)",
 };
 
 /** React Flow edges for the given relationships; line style tells family from other links. */
@@ -307,7 +307,7 @@ export function TypeFilter({ edges, hidden, onToggle }: TypeFilterProps) {
           type="button"
           onClick={() => onToggle(type)}
           className={cn(
-            "rounded-sm border px-2.5 py-1 text-xs transition-colors",
+            "rounded-full border px-3 py-1 text-xs transition-colors",
             hidden.has(type)
               ? "bg-card text-muted-foreground line-through"
               : "border-primary bg-accent text-foreground",

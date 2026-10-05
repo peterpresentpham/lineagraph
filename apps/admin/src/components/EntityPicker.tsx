@@ -55,7 +55,7 @@ export function EntityPicker({
 
   if (value && picked) {
     return (
-      <div className="bg-muted flex h-11 items-center justify-between rounded-[var(--radius)] border px-3 text-[15px]">
+      <div className="bg-muted flex h-11 items-center justify-between rounded-xl border px-3 text-[15px]">
         <span>{picked}</span>
         <button
           type="button"
@@ -89,7 +89,7 @@ export function EntityPicker({
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
       {open && (
-        <div className="bg-popover absolute z-50 mt-1 w-full overflow-hidden rounded-[var(--radius)] border shadow-lg">
+        <div className="bg-popover absolute z-50 mt-1 w-full overflow-hidden rounded-xl border shadow-lg">
           {data?.length ? (
             data.map((o) => (
               <button

@@ -116,7 +116,7 @@ export function Registries() {
         </form>
       )}
 
-      <div className="bg-card max-w-2xl rounded-[var(--radius)] border">
+      <div className="bg-card max-w-2xl rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>

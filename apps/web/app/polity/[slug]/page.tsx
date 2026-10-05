@@ -4,6 +4,7 @@ import { Badge } from "@lineagraph/ui";
 import { GraphClient } from "@/components/GraphClient";
 import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
+import { PageHeader } from "@/components/PageHeader";
 import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
 import type { GraphView, PolityDetail } from "@/lib/types";
@@ -34,24 +35,30 @@ export default async function PolityPage({ params }: Props) {
 
   return (
     <>
-      <h1 className="text-3xl">{polity.name}</h1>
-      <p className="text-muted-foreground mt-1">
-        {polity.started || polity.ended
-          ? `${polity.started?.label ?? "?"} – ${polity.ended?.label ?? "?"}`
-          : "Chưa rõ thời gian"}
-      </p>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <Badge variant="neutral">{typeLabels[polity.polityType] ?? polity.polityType}</Badge>
-        {otherNames.map((n, i) => (
-          <Badge key={i} variant="outline">
-            {n.name}
-          </Badge>
-        ))}
-      </div>
+      <PageHeader
+        hero
+        eyebrow="Chính thể"
+        title={polity.name}
+        description={
+          polity.started || polity.ended
+            ? `${polity.started?.label ?? "?"} – ${polity.ended?.label ?? "?"}`
+            : "Chưa rõ thời gian"
+        }
+        meta={
+          <>
+            <Badge variant="neutral">{typeLabels[polity.polityType] ?? polity.polityType}</Badge>
+            {otherNames.map((n, i) => (
+              <Badge key={i} variant="outline">
+                {n.name}
+              </Badge>
+            ))}
+          </>
+        }
+      />
 
       {polity.summary && (
         <Section title="Giới thiệu">
-          <p className="whitespace-pre-line leading-relaxed">{polity.summary}</p>
+          <p className="max-w-prose-page whitespace-pre-line text-lg leading-relaxed">{polity.summary}</p>
         </Section>
       )}
 
@@ -63,7 +70,7 @@ export default async function PolityPage({ params }: Props) {
 
       {polity.body && (
         <Section title="Lịch sử">
-          <p className="whitespace-pre-line leading-relaxed">{polity.body}</p>
+          <p className="max-w-prose-page whitespace-pre-line leading-relaxed">{polity.body}</p>
         </Section>
       )}
 
@@ -86,11 +93,11 @@ export default async function PolityPage({ params }: Props) {
             {polity.tenures.map((t) => (
               <li
                 key={t.id}
-                className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border p-4"
+                className="surface flex flex-wrap items-center justify-between gap-2 p-4"
               >
                 <div className="flex items-center gap-3">
                   {t.seq != null && (
-                    <span className="bg-accent grid size-8 place-items-center rounded-md text-sm font-semibold">
+                    <span className="bg-accent text-accent-foreground grid size-9 place-items-center rounded-xl text-sm font-semibold">
                       {t.seq}
                     </span>
                   )}

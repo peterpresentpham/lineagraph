@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
+import { PageHeader } from "@/components/PageHeader";
 import { Empty } from "@/components/Section";
 import { apiGet } from "@/lib/api";
 import type { SearchResult } from "@/lib/types";
@@ -20,11 +21,12 @@ export default async function SearchPage({ searchParams }: Props) {
 
   return (
     <>
-      <h1>{q ? `Kết quả cho "${q}"` : "Tìm kiếm"}</h1>
-      <p className="text-muted-foreground mt-1">
-        Tìm theo mọi tên của nhân vật hoặc chính thể, không cần gõ dấu.
-      </p>
-      <div className="mt-6 flex flex-col gap-2">
+      <PageHeader
+        eyebrow="Tìm kiếm"
+        title={q ? `Kết quả cho "${q}"` : "Tìm kiếm"}
+        description="Tìm theo mọi tên của nhân vật hoặc chính thể, không cần gõ dấu."
+      />
+      <div className="mt-8 flex flex-col gap-3">
         {!q.trim() ? (
           <Empty>Nhập từ khoá vào ô tìm kiếm phía trên.</Empty>
         ) : results.length === 0 ? (
@@ -34,7 +36,7 @@ export default async function SearchPage({ searchParams }: Props) {
             <Link
               key={`${r.kind}-${r.slug}`}
               href={`/${r.kind}/${r.slug}`}
-              className="bg-card flex items-center justify-between rounded-[var(--radius)] border p-4 no-underline transition-shadow hover:no-underline hover:shadow-md"
+              className="surface-interactive flex items-center justify-between gap-3 p-4"
             >
               <div>
                 <div className="text-foreground font-semibold">{r.name}</div>

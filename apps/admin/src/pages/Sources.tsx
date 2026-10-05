@@ -114,7 +114,7 @@ export function Sources() {
           </Button>
         }
       />
-      <div className="bg-card rounded-[var(--radius)] border">
+      <div className="bg-card rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
+import { PageHeader } from "@/components/PageHeader";
 import { Empty } from "@/components/Section";
 import { apiGet } from "@/lib/api";
 import type { TimelineEntry } from "@/lib/types";
@@ -23,21 +24,22 @@ export default async function TimelinePage() {
 
   return (
     <>
-      <h1>Dòng thời gian</h1>
-      <p className="text-muted-foreground mt-1">
-        Chính thể và nhân vật theo thứ tự thời gian, nhóm theo thế kỷ.
-      </p>
-      <div className="mt-6 flex flex-col gap-8">
+      <PageHeader
+        eyebrow="Theo thế kỷ"
+        title="Dòng thời gian"
+        description="Chính thể và nhân vật theo thứ tự thời gian, nhóm theo thế kỷ."
+      />
+      <div className="mt-8 flex flex-col gap-10">
         {entries.length === 0 && <Empty>Chưa có dữ liệu.</Empty>}
         {[...groups.entries()].map(([c, items]) => (
           <section key={c}>
-            <h2 className="mb-3 border-b pb-2">{centuryLabel(c)}</h2>
-            <ul className="flex flex-col gap-2">
+            <h2 className="text-gradient mb-4 w-fit text-2xl">{centuryLabel(c)}</h2>
+            <ul className="border-border ml-1 flex flex-col gap-3 border-l-2 pl-5">
               {items.map((e) => (
                 <li key={`${e.kind}-${e.slug}`}>
                   <Link
                     href={`/${e.kind}/${e.slug}`}
-                    className="bg-card flex items-center justify-between gap-3 rounded-[var(--radius)] border p-3 no-underline transition-shadow hover:no-underline hover:shadow-md"
+                    className="surface-interactive flex items-center justify-between gap-3 p-3.5"
                   >
                     <span>
                       <span className="text-foreground font-semibold">{e.name}</span>

@@ -1,0 +1,82 @@
+/* ==========================================================================
+   Layer 2 - semantic tokens.
+   Says what each colour is *for* (background, card, primary, border...) and picks a light and a
+   dark value with light-dark(). The theme switches through `color-scheme`:
+     - default           follows the OS (prefers-color-scheme)
+     - [data-theme=light] / [data-theme=dark]   forced by ThemeToggle
+   so every value is declared once; there is no duplicated dark block.
+   Components must use these names (bg-card, text-muted-foreground...), never raw ramp steps.
+   ========================================================================== */
+
+:root {
+  color-scheme: light dark;
+
+  /* Shape */
+  --radius: 0.875rem;
+
+  /* Surfaces */
+  --background: light-dark(var(--color-stone-50), var(--color-night-950));
+  --foreground: light-dark(var(--color-stone-950), var(--color-night-50));
+  --card: light-dark(#fff, var(--color-night-900));
+  --card-foreground: var(--foreground);
+  --popover: light-dark(#fff, var(--color-night-850));
+  --popover-foreground: var(--foreground);
+  --muted: light-dark(var(--color-stone-100), var(--color-night-850));
+  --muted-foreground: light-dark(var(--color-stone-600), var(--color-night-400));
+  --secondary: light-dark(var(--color-stone-100), var(--color-night-800));
+  --secondary-foreground: var(--foreground);
+  --border: light-dark(var(--color-stone-200), var(--color-night-700));
+  --input: light-dark(var(--color-stone-300), var(--color-night-600));
+  --shadow-color: light-dark(oklch(0.3 0.04 60 / 0.1), oklch(0 0 0 / 0.45));
+
+  /* Brand */
+  --primary: light-dark(var(--color-brand-600), var(--color-brand-400));
+  --primary-foreground: light-dark(#fff, var(--color-brand-950));
+  --accent: light-dark(var(--color-brand-50), oklch(0.27 0.045 30));
+  --accent-foreground: light-dark(var(--color-brand-800), var(--color-brand-100));
+  --ring: light-dark(var(--color-brand-500), var(--color-brand-400));
+  --highlight: light-dark(var(--color-gold-600), var(--color-gold-400));
+
+  /* Status */
+  --destructive: light-dark(oklch(0.577 0.245 27), oklch(0.7 0.19 22));
+  --success: light-dark(oklch(0.52 0.13 150), oklch(0.78 0.15 150));
+  --warning: light-dark(oklch(0.58 0.13 70), oklch(0.82 0.15 85));
+  --info: light-dark(var(--color-indigo-600), var(--color-indigo-300));
+
+  /* Brand gradient, used for the logo, hero accents and gradient text. */
+  --brand-from: light-dark(var(--color-brand-600), var(--color-brand-400));
+  --brand-to: light-dark(var(--color-gold-500), var(--color-gold-300));
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Expose to Tailwind: bg-card, text-muted-foreground, border-border, ring-ring, text-info... */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-highlight: var(--highlight);
+}
