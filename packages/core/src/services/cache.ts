@@ -5,6 +5,28 @@
 
 const store = new Map<string, { value: unknown; expires: number }>();
 
+/** Cache key of the relation type table (read by relationships.ts, written by relationTypes.ts). */
+export const TYPES_CACHE_KEY = "relation-types";
+
+/** Cache key of the whole relationship graph (relations, tenures, people) used by path search. */
+export const GRAPH_CACHE_KEY = "graph-data";
+
+/** Cache key of the per-century entry counts of the timeline. */
+export const TIMELINE_CACHE_KEY = "timeline-index";
+
+/**
+ * Call after any write to people, polities, events or their links: the next path search reloads
+ * the graph and the next timeline visit recounts the centuries.
+ */
+export function invalidateGraphCache() {
+  invalidate(GRAPH_CACHE_KEY, TIMELINE_CACHE_KEY);
+}
+
+/** Drops cached entries so the next read reloads them; call after writing the data they hold. */
+export function invalidate(...keys: string[]) {
+  for (const key of keys) store.delete(key);
+}
+
 export async function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
   const hit = store.get(key);
   if (hit && hit.expires > Date.now()) return hit.value as T;

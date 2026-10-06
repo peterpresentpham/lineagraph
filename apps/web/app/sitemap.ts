@@ -1,40 +1,48 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/lib/site";
+import { API_URL, SITE_URL } from "@/lib/site";
 
-const API_URL = process.env.API_URL ?? "http://localhost:4200";
-const PAGE_SIZE = 200; // server caps `limit` at 200 regardless of what we ask for
-const MAX_PERSONS = 20_000; // safety bound on the pagination loop below
+const PAGE_SIZE = 200; // the API caps `limit` at 200 regardless of what is asked for
+// A sitemap file may hold 50 000 URLs. The three kinds share that, so each stops at this many;
+// past it the sitemap needs splitting with generateSitemaps.
+const MAX_PER_KIND = 15_000;
+const REVALIDATE_SECONDS = 3600;
 
-async function allPersonSlugs(): Promise<string[]> {
-  const slugs: string[] = [];
-  for (let offset = 0; offset < MAX_PERSONS; offset += PAGE_SIZE) {
-    const res = await fetch(`${API_URL}/persons?limit=${PAGE_SIZE}&offset=${offset}`, {
-      cache: "no-store",
+type Listed = { slug: string; updatedAt?: string };
+
+// Every record of one listing endpoint (persons, polities, events), page by page.
+async function allRecords(path: string): Promise<Listed[]> {
+  const records: Listed[] = [];
+  for (let offset = 0; offset < MAX_PER_KIND; offset += PAGE_SIZE) {
+    const res = await fetch(`${API_URL}${path}?limit=${PAGE_SIZE}&offset=${offset}`, {
+      next: { revalidate: REVALIDATE_SECONDS },
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) break;
-    const { items, total } = (await res.json()) as { items: { slug: string }[]; total: number };
-    slugs.push(...items.map((p) => p.slug));
+    const { items, total } = (await res.json()) as { items: Listed[]; total: number };
+    records.push(...items);
     if (offset + PAGE_SIZE >= total) break;
   }
-  return slugs;
+  return records;
 }
 
-async function allPolitySlugs(): Promise<string[]> {
-  const res = await fetch(`${API_URL}/polities`, { cache: "no-store" });
-  if (!res.ok) return [];
-  const polities = (await res.json()) as { slug: string }[];
-  return polities.map((p) => p.slug);
-}
-
+// Pages worth indexing. Search results, the relation finder and the graph are left out: they
+// depend on what the visitor types and are marked noindex.
 const staticRoutes: { path: string; priority: number; changeFrequency: "weekly" | "monthly" }[] = [
   { path: "", priority: 1, changeFrequency: "weekly" },
   { path: "/persons", priority: 0.7, changeFrequency: "weekly" },
   { path: "/polities", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/events", priority: 0.7, changeFrequency: "weekly" },
   { path: "/timeline", priority: 0.7, changeFrequency: "weekly" },
-  { path: "/search", priority: 0.4, changeFrequency: "monthly" },
-  { path: "/relations", priority: 0.4, changeFrequency: "monthly" },
-  { path: "/graph", priority: 0.4, changeFrequency: "monthly" },
+  { path: "/gioi-thieu", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/nguon", priority: 0.5, changeFrequency: "weekly" },
+  { path: "/bao-loi", priority: 0.3, changeFrequency: "monthly" },
+  { path: "/quyen-rieng-tu", priority: 0.2, changeFrequency: "monthly" },
+  { path: "/dieu-khoan", priority: 0.2, changeFrequency: "monthly" },
 ];
+
+// Built per request (the API is not running while the site is built); the API answers are cached for
+// an hour, so a crawler does not trigger the full walk each time.
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = staticRoutes.map(
@@ -46,21 +54,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
 
   try {
-    const [personSlugs, politySlugs] = await Promise.all([allPersonSlugs(), allPolitySlugs()]);
-    for (const slug of personSlugs) {
-      entries.push({
-        url: `${SITE_URL}/person/${slug}`,
-        changeFrequency: "monthly",
-        priority: 0.5,
-      });
-    }
-    for (const slug of politySlugs) {
-      entries.push({
-        url: `${SITE_URL}/polity/${slug}`,
-        changeFrequency: "monthly",
-        priority: 0.5,
-      });
-    }
+    const kinds = [
+      ["person", "/persons"],
+      ["polity", "/polities"],
+      ["event", "/events"],
+    ] as const;
+    const lists = await Promise.all(kinds.map(([, path]) => allRecords(path)));
+    kinds.forEach(([prefix], i) => {
+      for (const r of lists[i]!) {
+        entries.push({
+          url: `${SITE_URL}/${prefix}/${r.slug}`,
+          lastModified: r.updatedAt,
+          changeFrequency: "monthly",
+          priority: 0.5,
+        });
+      }
+    });
   } catch {
     // API unreachable: ship the static routes rather than failing the whole sitemap.
   }

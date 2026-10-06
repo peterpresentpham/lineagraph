@@ -17,6 +17,7 @@ import {
   GraphUi,
   TypeFilter,
   buildEdges,
+  defaultLink,
   layout,
   nodeTypes,
   placeAround,
@@ -32,6 +33,8 @@ const FOCUS_COUNT = 8;
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.hypot(a.x - b.x, a.y - b.y);
 const MORE_LIMIT = 30;
+// How many past centres the breadcrumb keeps.
+const MAX_TRAIL = 8;
 
 type Crumb = { id: string; slug: string; name: string };
 type Props = {
@@ -89,7 +92,11 @@ function Inner({
   // Threshold the server actually applied (shown, and lowered one step by "Tải thêm").
   const [effMin, setEffMin] = useState(5);
   const [rfNodes, setRfNodes] = useState<Node<EntityNodeData>[]>([]);
-  const fitSoon = useRef(0);
+  // Bumped whenever the view should be re-framed (a new graph, or more people added).
+  const [fitTick, setFitTick] = useState(0);
+  // The centre the default line filter was last applied for, so changing depth or the importance
+  // level does not undo the chips the viewer toggled.
+  const filterDefaultsFor = useRef<string | null>(null);
 
   // The parent changed the centre (for example through the person picker): start over there.
   // (Skipped when the change only echoes a re-centre made inside the graph.)
@@ -132,22 +139,25 @@ function Inner({
         if (middle) {
           // Office-holding lines clutter a person's picture, and a polity with many office-holders
           // (a dynasty) turns into a fan of lines; the chip below brings them back.
-          const tenureLines = data.edges.filter((e) => e.type === "tenure").length;
-          setHiddenTypes((prev) => {
-            const next = new Set(prev);
-            if (middle.kind === "person" || tenureLines > 8) next.add("tenure");
-            else next.delete("tenure");
-            return next;
-          });
+          if (filterDefaultsFor.current !== middle.id) {
+            filterDefaultsFor.current = middle.id;
+            const tenureLines = data.edges.filter((e) => e.type === "tenure").length;
+            setHiddenTypes((prev) => {
+              const next = new Set(prev);
+              if (middle.kind === "person" || tenureLines > 8) next.add("tenure");
+              else next.delete("tenure");
+              return next;
+            });
+          }
           centre.current = { id: middle.id, slug: middle.slug };
           setTrail((t) =>
             t.some((c) => c.id === middle.id)
               ? t
-              : [...t, { id: middle.id, slug: middle.slug, name: middle.name }],
+              : [...t, { id: middle.id, slug: middle.slug, name: middle.name }].slice(-MAX_TRAIL),
           );
         }
         setStatus("ready");
-        fitSoon.current++;
+        setFitTick((t) => t + 1);
       })
       .catch(() => {
         if (!cancelled) setStatus("error");
@@ -158,7 +168,7 @@ function Inner({
   }, [api, rootRef, options, reloadKey]);
 
   useEffect(() => {
-    if (fitSoon.current === 0) return;
+    if (fitTick === 0) return;
     const t = setTimeout(() => {
       // A long lineage is a tall tree that would shrink to unreadable text when fitted whole, so
       // a big graph opens on the middle node and its closest neighbours; pan or zoom for the rest.
@@ -174,7 +184,7 @@ function Inner({
       fitView({ nodes: near, padding: 0.2, duration: 300 });
     }, 60);
     return () => clearTimeout(t);
-  }, [rfNodes.length, rootId, fitView, getNodes]);
+  }, [fitTick, rootId, fitView, getNodes]);
 
   const expand = useCallback(
     async (nodeId: string) => {
@@ -208,7 +218,7 @@ function Inner({
           }));
           return [...updated, ...added];
         });
-        fitSoon.current++;
+        setFitTick((t) => t + 1);
       } catch {
         setMessage("Không tải thêm được, thử lại sau.");
       } finally {
@@ -276,13 +286,7 @@ function Inner({
 
   const ctx = useMemo(
     () => ({
-      renderLink:
-        renderLink ??
-        ((node: GraphNode, p: { className: string; children: React.ReactNode }) => (
-          <a href={`/${node.kind}/${node.slug}`} className={p.className}>
-            {p.children}
-          </a>
-        )),
+      renderLink: renderLink ?? defaultLink,
       connectable: Boolean(onConnect),
       onExpand: (id: string) => void expand(id),
       onRecenter: recenter,
@@ -302,7 +306,7 @@ function Inner({
           <select
             value={depth}
             onChange={(e) => setDepth(Number(e.target.value))}
-            className="border-input bg-background text-foreground h-8 rounded-lg border px-2"
+            className="border-input bg-background text-foreground focus-visible:ring-ring h-8 rounded-lg border px-2 outline-none focus-visible:ring-2"
           >
             {[1, 2, 3].map((d) => (
               <option key={d} value={d}>
@@ -318,7 +322,7 @@ function Inner({
             onChange={(e) =>
               setMinImportance(e.target.value === "auto" ? undefined : Number(e.target.value))
             }
-            className="border-input bg-background text-foreground h-8 rounded-lg border px-2"
+            className="border-input bg-background text-foreground focus-visible:ring-ring h-8 rounded-lg border px-2 outline-none focus-visible:ring-2"
           >
             <option value="auto">Tự động</option>
             <option value={5}>Chỉ mối quan hệ cốt lõi</option>
@@ -400,16 +404,25 @@ function Inner({
           elementsSelectable={false}
           minZoom={0.2}
           maxZoom={1.6}
-          proOptions={{ hideAttribution: false }}
         >
           <Background gap={20} />
           <Controls showInteractive={false} />
-          {rfNodes.length > 12 && <MiniMap pannable zoomable className="!bg-card" />}
+          {rfNodes.length > 12 && (
+            <MiniMap pannable zoomable ariaLabel="Bản đồ thu nhỏ" className="!bg-card" />
+          )}
         </ReactFlow>
       </div>
+      {/* The picture is not readable by assistive technology, so the same relations as text. */}
+      <ul className="sr-only" aria-label="Danh sách quan hệ trong sơ đồ">
+        {[...graphEdges.values()].slice(0, 300).map((e) => (
+          <li key={e.id}>
+            {graphNodes.get(e.source)?.name} · {e.typeLabel} · {graphNodes.get(e.target)?.name}
+          </li>
+        ))}
+      </ul>
       <p className="text-muted-foreground mt-2 text-xs">
-        Kéo để di chuyển, cuộn để phóng to. Bấm vào tên để xem trang của người đó, bấm biểu tượng ◎
-        để lấy người đó làm trung tâm, bấm “+N” để hiện thêm người liên quan.
+        Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng to. Bấm vào tên để xem trang của người
+        đó, bấm biểu tượng ◎ để lấy người đó làm trung tâm, bấm “+N” để hiện thêm người liên quan.
         {truncated ? " Sơ đồ đã được giới hạn số người." : ""}
         {onEdgeClick ? " Bấm vào đường nối để sửa quan hệ." : ""}
         {onConnect ? " Kéo từ chấm dưới của một ô sang chấm trên của ô khác để thêm quan hệ." : ""}

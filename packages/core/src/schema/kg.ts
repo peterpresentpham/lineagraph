@@ -15,7 +15,7 @@ import {
 import { sql } from "drizzle-orm";
 
 // Shared base layer for every domain (person, polity, place, event, ...).
-// Details and rationale for each table: ../../../../../../teencare/knowledge/stuff/y-tuong-su-pha-app-hoc-lich-su.md section 5.3.
+// Details and rationale for each table: docs/design.md section 5, current diagrams in docs/database.md.
 export const kg = pgSchema("kg");
 
 export const nodeKind = kg.table("node_kind", {
@@ -88,7 +88,13 @@ export const node = kg.table(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("node_id_kind_key").on(t.id, t.kind)],
+  (t) => [
+    uniqueIndex("node_id_kind_key").on(t.id, t.kind),
+    // Lists and searches only ever look at live nodes of one kind.
+    index("node_kind_live_idx")
+      .on(t.kind)
+      .where(sql`${t.deletedAt} is null`),
+  ],
 );
 
 export const collection = kg.table("collection", {
@@ -130,7 +136,15 @@ export const name = kg.table(
     validFrom: uuid("valid_from"),
     validTo: uuid("valid_to"),
   },
-  (t) => [index("name_normalized_idx").on(t.nameNormalized)],
+  (t) => [
+    index("name_normalized_idx").on(t.nameNormalized),
+    index("name_node_idx").on(t.nodeId),
+    // Makes `like '%text%'` search use an index instead of scanning every name.
+    index("name_normalized_trgm_idx").using("gin", t.nameNormalized.op("gin_trgm_ops")),
+    // "Exactly one primary name per node" is enforced by validation (`names` in validation.ts), not
+    // by a unique index: a unique index is checked row by row, so it would reject the single-
+    // statement delete-and-reinsert that updates a node's names.
+  ],
 );
 
 export const externalId = kg.table(
@@ -142,7 +156,7 @@ export const externalId = kg.table(
     system: text("system").notNull(),
     value: text("value").notNull(),
   },
-  (t) => [primaryKey({ columns: [t.system, t.value] })],
+  (t) => [primaryKey({ columns: [t.system, t.value] }), index("external_id_node_idx").on(t.nodeId)],
 );
 
 export const fuzzyDate = kg.table("fuzzy_date", {
@@ -156,17 +170,21 @@ export const fuzzyDate = kg.table("fuzzy_date", {
   note: text("note"),
 });
 
-export const source = kg.table("source", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  title: text("title").notNull(),
-  author: text("author"),
-  kind: text("kind"),
-  language: text("language").references(() => language.code),
-  url: text("url"),
-  license: text("license"),
-  reliability: smallint("reliability"),
-  note: text("note"),
-});
+export const source = kg.table(
+  "source",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    author: text("author"),
+    kind: text("kind"),
+    language: text("language").references(() => language.code),
+    url: text("url"),
+    license: text("license"),
+    reliability: smallint("reliability"),
+    note: text("note"),
+  },
+  (t) => [check("source_reliability_check", sql`${t.reliability} between 1 and 5`)],
+);
 
 export const citation = kg.table(
   "citation",
@@ -180,8 +198,21 @@ export const citation = kg.table(
     locator: text("locator"),
     quote: text("quote"),
     confidence: smallint("confidence").notNull(),
+    // What the source says about the fact: backs it, disputes it, or only mentions it.
+    stance: text("stance").notNull().default("supports"),
   },
-  (t) => [index("citation_subject_idx").on(t.subjectTable, t.subjectId)],
+  (t) => [
+    check("citation_stance_check", sql`${t.stance} in ('supports', 'disputes', 'mentions')`),
+    index("citation_subject_idx").on(t.subjectTable, t.subjectId),
+    // The same source and place in it cannot back the same fact twice.
+    uniqueIndex("citation_unique_key").on(
+      t.subjectTable,
+      t.subjectId,
+      t.sourceId,
+      sql`coalesce(${t.locator}, '')`,
+    ),
+    check("citation_confidence_check", sql`${t.confidence} between 1 and 5`),
+  ],
 );
 
 export const relation = kg.table(
@@ -204,6 +235,10 @@ export const relation = kg.table(
     note: text("note"),
     // Sources disagree; hidden from path-finding unless the caller opts in.
     disputed: boolean("disputed").notNull().default(false),
+    // Why the relation is contested, and by whom (shown with the "sources disagree" badge).
+    disputeNote: text("dispute_note"),
+    // How sure the editor is that the relation is real: 1 (a guess) to 5 (well attested). Null = not rated.
+    confidence: smallint("confidence"),
     // 1 (minor) to 5 (core). Graph views show only links at or above a threshold at first and
     // reveal the rest on "load more", so a dynasty graph can start with just its rulers.
     importance: smallint("importance").notNull().default(3),
@@ -215,8 +250,16 @@ export const relation = kg.table(
   (t) => [
     index("relation_from_type_idx").on(t.fromId, t.type),
     index("relation_to_type_idx").on(t.toId, t.type),
+    // One real-world fact is one row: same type, same pair, same variant cannot repeat.
+    uniqueIndex("relation_unique_key").on(
+      t.type,
+      t.fromId,
+      t.toId,
+      sql`coalesce(${t.variant}, '')`,
+    ),
     check("relation_not_self_check", sql`${t.fromId} <> ${t.toId}`),
     check("relation_importance_check", sql`${t.importance} between 1 and 5`),
+    check("relation_confidence_check", sql`${t.confidence} between 1 and 5`),
   ],
 );
 

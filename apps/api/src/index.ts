@@ -1,50 +1,50 @@
-// Imported first for its side effect: @lineagraph/core loads the root .env, which the
+// Imported first on purpose: @lineagraph/core loads the root .env, which the
 // modules below (JWT_SECRET, DATABASE_URL) read at import time.
-import "@lineagraph/core";
-import express from "express";
-import cors from "cors";
-import { errorHandler } from "./http.js";
-import { authRouter } from "./routes/auth.js";
-import { graphRouter } from "./routes/graph.js";
-import { relationsRouter } from "./routes/relations.js";
-import { searchRouter } from "./routes/search.js";
-import { timelineRouter } from "./routes/timeline.js";
-import { learningRouter } from "./routes/learning.js";
-import { contentRouter } from "./routes/content.js";
-import { reviewRouter } from "./routes/review.js";
-import { provenanceRouter } from "./routes/provenance.js";
-import { registryRouter } from "./routes/registry.js";
-import { opsRouter } from "./routes/ops.js";
+import { sql } from "@lineagraph/core";
+import { createApp } from "./app.js";
+import { loadConfig } from "./config.js";
+import { errorFields, log } from "./logger.js";
 
-const app = express();
-app.use(
-  cors({
-    origin: [
-      process.env.WEB_ORIGIN ?? "http://localhost:3200",
-      process.env.ADMIN_ORIGIN ?? "http://localhost:4100",
-    ],
-  }),
-);
-app.use(express.json());
+let config;
+try {
+  config = loadConfig();
+} catch (err) {
+  // A misconfigured production deploy must fail loudly and at once, before taking any traffic.
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+}
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+const app = createApp(config);
+const server = app.listen(config.port, () => {
+  log("info", "listening", { port: config.port, production: config.production });
+});
 
-// Public reads first, so admin-guarded routers below never shadow them.
-app.use(graphRouter);
-app.use(searchRouter);
-app.use(timelineRouter);
-app.use(registryRouter);
-app.use(provenanceRouter);
-app.use(authRouter);
-app.use(contentRouter);
-app.use(opsRouter);
-app.use(relationsRouter);
-app.use(learningRouter);
-app.use(reviewRouter);
+// Keep-alive just above a typical proxy's idle timeout, and bounded request times, so slow or
+// half-open clients cannot hold sockets (and database connections behind them) forever.
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
+server.requestTimeout = 30_000;
 
-app.use(errorHandler);
-
-const port = process.env.PORT ? Number(process.env.PORT) : 4200;
-app.listen(port, () => {
-  console.log(`lineagraph api listening on :${port}`);
+let stopping = false;
+async function shutdown(signal: string, exitCode = 0) {
+  if (stopping) return;
+  stopping = true;
+  log("info", "shutting down", { signal });
+  // Stop accepting connections, let in-flight requests finish, then close the database pool.
+  const force = setTimeout(() => process.exit(exitCode || 1), 10_000);
+  force.unref();
+  server.close(async () => {
+    await sql.end({ timeout: 5 }).catch(() => undefined);
+    process.exit(exitCode);
+  });
+}
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+  log("error", "unhandled rejection", errorFields(reason));
+  void shutdown("unhandledRejection", 1);
+});
+process.on("uncaughtException", (err) => {
+  log("error", "uncaught exception", errorFields(err));
+  void shutdown("uncaughtException", 1);
 });

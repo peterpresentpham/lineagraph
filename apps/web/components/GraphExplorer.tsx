@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { GraphNode } from "@lineagraph/ui/graph";
 import { egoApi } from "@/lib/egoApi";
 import { NodePicker } from "./NodePicker";
-import { renderNodeLink } from "./GraphClient";
+import { renderNodeLink } from "./renderNodeLink";
 
 const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoGraph), {
   ssr: false,

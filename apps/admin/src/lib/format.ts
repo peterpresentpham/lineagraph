@@ -9,7 +9,13 @@ export const historicityLabels: Record<string, string> = {
 
 export const toDateInput = (value: DateValue | null | undefined): DateInput | null =>
   value
-    ? { year: value.year, month: value.month, day: value.day, approximate: value.approximate }
+    ? {
+        year: value.year,
+        month: value.month,
+        day: value.day,
+        approximate: value.approximate,
+        calendar: value.calendar,
+      }
     : null;
 
 export const lifeSpan = (birth: DateValue | null, death: DateValue | null) =>
@@ -24,6 +30,8 @@ export const variantOptions: Record<string, { code: string; label: string }[]> =
   ],
   spouse_of: [
     { code: "marriage", label: "Hôn nhân" },
+    { code: "principal", label: "Chính thất" },
+    { code: "political", label: "Hôn nhân chính trị" },
     { code: "concubine", label: "Thứ phi / hầu" },
     { code: "partnership", label: "Quan hệ khác" },
   ],
@@ -47,4 +55,26 @@ export const importanceLevels: [number, string][] = [
   [3, "Thông thường"],
   [2, "Phụ"],
   [1, "Rất phụ"],
+];
+
+// Kinds of place offered in the place form (the API accepts any lowercase code).
+export const placeTypes: [string, string][] = [
+  ["city", "Thành phố / thị trấn"],
+  ["region", "Vùng"],
+  ["province", "Tỉnh / bang"],
+  ["country", "Quốc gia / lãnh thổ"],
+  ["river", "Sông"],
+  ["mountain", "Núi"],
+  ["battlefield", "Chiến trường"],
+  ["fortress", "Thành luỹ / pháo đài"],
+  ["other", "Khác"],
+];
+
+// How well attested a relation or tenure is, from the editor's reading of the sources.
+export const confidenceLevels: [number, string][] = [
+  [1, "Phỏng đoán"],
+  [2, "Ít chắc chắn"],
+  [3, "Có thể tin"],
+  [4, "Khá chắc chắn"],
+  [5, "Được ghi nhận rõ"],
 ];

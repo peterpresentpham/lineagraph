@@ -5,7 +5,7 @@ import { db, sql } from "../db";
 import * as kg from "../schema/kg";
 import * as history from "../schema/history";
 
-const nodeKinds = ["person", "polity"];
+const nodeKinds = ["person", "polity", "event"];
 
 // code -> Vietnamese label, shown in the UI (kg.label, namespace = table name).
 const nameKinds = {
@@ -48,6 +48,27 @@ const successionModes = {
 // Relation types. Each inverse pair is two rows; only the primary one is ever stored on a
 // relationship (the other is derived when reading), see kg.relation_type.is_primary.
 type Kind = "person" | "polity";
+
+// Starting importance (1 minor - 5 core) a new relationship of each type gets; the admin can change
+// it per type later. Succession and founding are the spine of a lineage graph, then conquest and
+// splits; teachers, friends and rivals are minor; everything else keeps the default of 3.
+const defaultImportance: Record<string, number> = {
+  successor_of: 5,
+  predecessor_of: 5,
+  succeeds: 5,
+  succeeded_by: 5,
+  founder_of: 5,
+  founded_by: 5,
+  conquered: 4,
+  conquered_by: 4,
+  split_from: 4,
+  split_into: 4,
+  teacher_of: 2,
+  student_of: 2,
+  rival_of: 2,
+  friend_of: 2,
+};
+
 const relationTypes: {
   code: string;
   label: string;
@@ -270,7 +291,102 @@ const relationTypes: {
     subjects: ["polity"],
     objects: ["polity"],
   },
+  {
+    code: "at_war_with",
+    label: "Giao chiến với",
+    inverse: null,
+    symmetric: true,
+    primary: true,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
+  {
+    code: "appointed",
+    label: "Đã bổ nhiệm",
+    inverse: "appointed_by",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "appointed_by",
+    label: "Được bổ nhiệm bởi",
+    inverse: "appointed",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "regent_for",
+    label: "Nhiếp chính cho",
+    inverse: "under_regency_of",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "under_regency_of",
+    label: "Được nhiếp chính bởi",
+    inverse: "regent_for",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "rebelled_against",
+    label: "Nổi dậy chống lại",
+    inverse: "rebelled_against_by",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
+  {
+    code: "rebelled_against_by",
+    label: "Bị nổi dậy chống lại bởi",
+    inverse: "rebelled_against",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
 ];
+const eventTypes = {
+  battle: "Trận đánh",
+  siege: "Cuộc vây hãm",
+  war: "Chiến tranh",
+  treaty: "Hiệp ước",
+  coronation: "Lễ đăng quang",
+  abdication: "Thoái vị",
+  rebellion: "Khởi nghĩa / nổi loạn",
+  marriage: "Hôn lễ",
+  founding: "Khai lập",
+  assassination: "Ám sát",
+  disaster: "Thiên tai / dịch bệnh",
+  other: "Khác",
+};
+const participantRoles = {
+  commander: "Chỉ huy",
+  belligerent: "Bên tham chiến",
+  signatory: "Bên ký kết",
+  victor: "Bên thắng",
+  vanquished: "Bên thua",
+  victim: "Nạn nhân",
+  organizer: "Người khởi xướng",
+  witness: "Chứng kiến",
+  participant: "Tham dự",
+};
 const attributeTypes = {
   hometown: "Quê quán",
   birth_place: "Nơi sinh",
@@ -343,11 +459,21 @@ for (const r of relationTypes) {
     subjectKinds: r.subjects,
     objectKinds: r.objects,
   };
+  // The default importance is only set when the type is first created, so re-running the seed
+  // does not undo what the admin changed on the relation types page.
   await db
     .insert(kg.relationType)
-    .values(row)
+    .values({ ...row, defaultImportance: defaultImportance[r.code] ?? 3 })
     .onConflictDoUpdate({ target: kg.relationType.code, set: row });
 }
+await db
+  .insert(history.eventType)
+  .values(Object.keys(eventTypes).map((code) => ({ code })))
+  .onConflictDoNothing();
+await db
+  .insert(history.participantRole)
+  .values(Object.keys(participantRoles).map((code) => ({ code })))
+  .onConflictDoNothing();
 await db
   .insert(kg.attributeType)
   .values(Object.keys(attributeTypes).map((code) => ({ code })))
@@ -362,6 +488,8 @@ addLabels(
 addLabels("succession_mode", successionModes);
 addLabels("relation_type", Object.fromEntries(relationTypes.map((r) => [r.code, r.label])));
 addLabels("attribute_type", attributeTypes);
+addLabels("event_type", eventTypes);
+addLabels("participant_role", participantRoles);
 addLabels("calendar", calendars);
 await db
   .insert(kg.label)

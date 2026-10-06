@@ -9,22 +9,18 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
   Textarea,
   toast,
 } from "@lineagraph/ui";
-import { ConfirmDelete } from "../components/ConfirmDelete";
+import { DeleteDialog } from "../components/ConfirmDelete";
+import { DataTable, type Column } from "../components/data-table/DataTable";
+import { ListToolbar } from "../components/data-table/ListToolbar";
 import { Field } from "../components/Field";
 import { FormSheet } from "../components/FormSheet";
 import { PageHeader } from "../components/PageHeader";
-import { TableSkeleton } from "../components/TableSkeleton";
 import { api } from "../lib/api";
-import { errorMessage } from "../lib/hooks";
+import { errorMessage, useOpenCreateFromUrl } from "../lib/hooks";
+import { useListState } from "../lib/useListState";
 
 type Source = {
   id: string;
@@ -32,6 +28,7 @@ type Source = {
   author: string | null;
   kind: string | null;
   url: string | null;
+  license: string | null;
   reliability: number | null;
   note: string | null;
 };
@@ -40,6 +37,7 @@ type Form = {
   author: string;
   kind: string;
   url: string;
+  license: string;
   reliability: string;
   note: string;
 };
@@ -48,15 +46,35 @@ const emptyForm = (): Form => ({
   author: "",
   kind: "",
   url: "",
+  license: "",
   reliability: "",
   note: "",
 });
 const UNRATED = "__unrated__";
 
+const columns: Column<Source>[] = [
+  {
+    key: "title",
+    header: "Tên nguồn",
+    mobile: "title",
+    className: "font-medium",
+    cell: (s) => s.title,
+  },
+  { key: "author", header: "Tác giả", cell: (s) => s.author ?? "" },
+  { key: "kind", header: "Loại", cell: (s) => s.kind ?? "" },
+  {
+    key: "reliability",
+    header: "Độ tin cậy",
+    cell: (s) => (s.reliability ? `${s.reliability}/5` : ""),
+  },
+];
+
 export function Sources() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const list = useListState({ keys: [], pageSize: 1000 });
+  const [toDelete, setToDelete] = useState<Source | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
   // Serialized form as loaded for an edit; null when creating.
   const [baseline, setBaseline] = useState<string | null>(null);
@@ -65,6 +83,11 @@ export function Sources() {
     queryKey: ["sources"],
     queryFn: () => api.get<Source[]>("/sources"),
   });
+  // The API returns every source, so searching happens here, as the admin types.
+  const needle = list.text.trim().toLowerCase();
+  const rows = data?.filter(
+    (s) => !needle || `${s.title} ${s.author ?? ""} ${s.kind ?? ""}`.toLowerCase().includes(needle),
+  );
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["sources"] });
     queryClient.invalidateQueries({ queryKey: ["stats"] });
@@ -86,12 +109,20 @@ export function Sources() {
     onError: (e) => toast.error(errorMessage(e)),
   });
 
+  const openCreate = () => {
+    setEditingId(null);
+    setBaseline(null);
+    setForm(emptyForm());
+    setOpen(true);
+  };
+  useOpenCreateFromUrl(openCreate);
   const openEdit = (s: Source) => {
     const loaded = {
       title: s.title,
       author: s.author ?? "",
       kind: s.kind ?? "",
       url: s.url ?? "",
+      license: s.license ?? "",
       reliability: s.reliability?.toString() ?? "",
       note: s.note ?? "",
     };
@@ -107,69 +138,52 @@ export function Sources() {
         title="Nguồn tư liệu"
         description="Sách sử, bia ký, bài nghiên cứu... dùng để dẫn nguồn cho dữ kiện."
         action={
-          <Button
-            onClick={() => {
-              setEditingId(null);
-              setBaseline(null);
-              setForm(emptyForm());
-              setOpen(true);
-            }}
-          >
+          <Button onClick={openCreate}>
             <Plus /> Thêm nguồn
           </Button>
         }
       />
-      <div className="bg-card rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tiêu đề</TableHead>
-              <TableHead>Tác giả</TableHead>
-              <TableHead>Loại</TableHead>
-              <TableHead>Độ tin cậy</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && <TableSkeleton cols={5} />}
-            {data?.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell className="font-medium">{s.title}</TableCell>
-                <TableCell>{s.author}</TableCell>
-                <TableCell>{s.kind}</TableCell>
-                <TableCell>{s.reliability ? `${s.reliability}/5` : ""}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
-                    <Pencil />
-                  </Button>
-                  <ConfirmDelete
-                    title={`Xoá "${s.title}"?`}
-                    description="Không xoá được nếu nguồn đang được dùng để dẫn chứng."
-                    onConfirm={async () => {
-                      await api.del(`/sources/${s.id}`);
-                      toast.success("Đã xoá nguồn");
-                      refresh();
-                    }}
-                    trigger={(openDialog) => (
-                      <Button variant="ghost" size="icon" onClick={openDialog}>
-                        <Trash2 />
-                      </Button>
-                    )}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {data && data.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
-                  Chưa có nguồn nào
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
+      <ListToolbar
+        search={list.text}
+        onSearchChange={list.setText}
+        placeholder="Tìm theo tên sách, tác giả..."
+        hasFilters={!!list.text}
+        onClear={() => list.setText("")}
+      />
+      <DataTable
+        rows={rows}
+        loading={isLoading}
+        columns={columns}
+        rowKey={(s) => s.id}
+        onOpen={openEdit}
+        actions={(s) => [
+          { label: "Sửa", icon: Pencil, onSelect: () => openEdit(s) },
+          { label: "Xoá", icon: Trash2, destructive: true, onSelect: () => setToDelete(s) },
+        ]}
+        empty={
+          list.text ? (
+            "Không có nguồn nào khớp."
+          ) : (
+            <>
+              Chưa có nguồn nào.{" "}
+              <Button variant="link" className="h-auto p-0" onClick={openCreate}>
+                Thêm nguồn đầu tiên
+              </Button>
+            </>
+          )
+        }
+      />
+      <DeleteDialog
+        open={!!toDelete}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title={`Xoá nguồn "${toDelete?.title}"?`}
+        description="Không xoá được nếu nguồn đang được dùng để dẫn chứng."
+        onConfirm={async () => {
+          await api.del(`/sources/${toDelete!.id}`);
+          toast.success("Đã xoá nguồn");
+          refresh();
+        }}
+      />
       <FormSheet
         open={open}
         onOpenChange={setOpen}
@@ -221,7 +235,16 @@ export function Sources() {
             onChange={(e) => setForm({ ...form, url: e.target.value })}
           />
         </Field>
-        <Field label="Ghi chú">
+        <Field
+          label="Giấy phép sử dụng"
+          hint='Cách nguồn này được phép dùng lại, hiện công khai cùng trích dẫn. Ví dụ: "CC BY-SA 4.0", "Phạm vi công cộng". Để trống nếu chưa rõ.'
+        >
+          <Input
+            value={form.license}
+            onChange={(e) => setForm({ ...form, license: e.target.value })}
+          />
+        </Field>
+        <Field label="Ghi chú nội bộ" hint="Chỉ admin thấy, không hiện ra trang công khai.">
           <Textarea
             rows={4}
             value={form.note}

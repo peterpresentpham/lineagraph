@@ -13,7 +13,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { importanceLevels, toDateInput, variantOptions } from "../lib/format";
+import { confidenceLevels, importanceLevels, toDateInput, variantOptions } from "../lib/format";
 import { errorMessage } from "../lib/hooks";
 import type { DateInput, NodeKind, NodeRef, RelationType, RelationshipView } from "../lib/types";
 import { DateField, cleanDate } from "./DateField";
@@ -29,6 +29,9 @@ type Form = {
   label: string;
   note: string;
   disputed: boolean;
+  disputeNote: string;
+  // "" = not rated.
+  confidence: string;
   importance: number;
   start: DateInput | null;
   end: DateInput | null;
@@ -42,6 +45,8 @@ const emptyForm = (fromId: string | null): Form => ({
   label: "",
   note: "",
   disputed: false,
+  disputeNote: "",
+  confidence: "",
   importance: 3,
   start: null,
   end: null,
@@ -100,6 +105,8 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
           label: r.label ?? "",
           note: r.note ?? "",
           disputed: r.disputed,
+          disputeNote: r.disputeNote ?? "",
+          confidence: r.confidence?.toString() ?? "",
           importance: r.importance,
           start: toDateInput(r.start),
           end: toDateInput(r.end),
@@ -136,6 +143,8 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
         variant: form.variant || null,
         label: form.label || null,
         note: form.note || null,
+        disputeNote: form.disputed ? form.disputeNote || null : null,
+        confidence: form.confidence ? Number(form.confidence) : null,
         start: cleanDate(form.start),
         end: cleanDate(form.end),
       };
@@ -288,6 +297,27 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
           </SelectContent>
         </Select>
       </Field>
+      <Field
+        label="Độ chắc chắn"
+        hint="Bạn tin quan hệ này có thật đến đâu, theo các nguồn đã đọc."
+      >
+        <Select
+          value={form.confidence || UNKNOWN_VARIANT}
+          onValueChange={(v) => setForm({ ...form, confidence: v === UNKNOWN_VARIANT ? "" : v })}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNKNOWN_VARIANT}>Chưa đánh giá</SelectItem>
+            {confidenceLevels.map(([value, label]) => (
+              <SelectItem key={value} value={String(value)}>
+                {value} · {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
       <Label className="flex items-center gap-2 font-normal">
         <Checkbox
           checked={form.disputed}
@@ -295,6 +325,18 @@ export function RelationForm({ open, onOpenChange, editingId, fixedFrom, preset,
         />
         Còn tranh cãi (ẩn khỏi kết quả tìm mối liên hệ trừ khi người xem bật)
       </Label>
+      {form.disputed && (
+        <Field
+          label="Tranh cãi về điều gì"
+          hint='Ví dụ "Toàn thư ghi là con, Cương mục ghi là cháu". Gắn nguồn của từng phía ở mục Nguồn.'
+        >
+          <Textarea
+            rows={3}
+            value={form.disputeNote}
+            onChange={(e) => setForm({ ...form, disputeNote: e.target.value })}
+          />
+        </Field>
+      )}
     </FormSheet>
   );
 }

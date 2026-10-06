@@ -6,6 +6,40 @@ import type { CitationInput, SourceInput } from "../validation";
 
 export const listSources = () => db.select().from(source).orderBy(source.title);
 
+export type BibliographyEntry = {
+  id: string;
+  title: string;
+  author: string | null;
+  kind: string | null;
+  url: string | null;
+  license: string | null;
+  reliability: number | null;
+  citations: number;
+};
+
+/**
+ * The public reading list: every source that backs at least one live record, with how many
+ * citations rely on it. Editorial notes stay out; citations of deleted records are not counted.
+ */
+export async function listBibliography(opts: { limit?: number; offset?: number } = {}) {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const offset = Math.max(opts.offset ?? 0, 0);
+  const live = sql`not exists (
+    select 1 from kg.node n where n.id = c.subject_id and n.deleted_at is not null)`;
+  const [rows, [{ count }]] = await Promise.all([
+    db.execute<BibliographyEntry>(
+      sql`select s.id, s.title, s.author, s.kind, s.url, s.license, s.reliability,
+                 count(c.id)::int as citations
+          from kg.source s join kg.citation c on c.source_id = s.id and ${live}
+          group by s.id order by s.title limit ${limit} offset ${offset}`,
+    ),
+    db.execute<{ count: number }>(
+      sql`select count(distinct c.source_id)::int as count from kg.citation c where ${live}`,
+    ),
+  ]);
+  return { items: [...rows], total: count };
+}
+
 export async function createSource(input: SourceInput) {
   const [row] = await db.insert(source).values(input).returning({ id: source.id });
   return row!;
@@ -32,7 +66,14 @@ export async function listCitations(subjectTable: string, subjectId: string) {
       locator: citation.locator,
       quote: citation.quote,
       confidence: citation.confidence,
-      source: { id: source.id, title: source.title, author: source.author, url: source.url },
+      stance: citation.stance,
+      source: {
+        id: source.id,
+        title: source.title,
+        author: source.author,
+        url: source.url,
+        license: source.license,
+      },
     })
     .from(citation)
     .innerJoin(source, eq(source.id, citation.sourceId))

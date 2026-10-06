@@ -5,8 +5,17 @@ import { cn } from "../../lib/utils";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+function Select({ onValueChange, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  // Radix reports an empty value while the selected item is not rendered yet (for example when the
+  // page loads, or the options arrive later). That is not a choice by the user, and forms read it
+  // as an edit, so it is dropped here instead of in every form.
+  return (
+    <SelectPrimitive.Root
+      data-slot="select"
+      onValueChange={onValueChange && ((value) => value !== "" && onValueChange(value))}
+      {...props}
+    />
+  );
 }
 
 function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {

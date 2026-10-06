@@ -1,3 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@lineagraph/ui/src/theme.css";
+
+/* Printing a page for study: the site chrome carries `print:hidden`; the page keeps a white ground. */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

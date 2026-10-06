@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, setUnauthorizedHandler, tokenStore } from "./api";
+import { api, endSessionsOnServer, setUnauthorizedHandler, tokenStore } from "./api";
 
 type AuthState = {
   email: string | null;
@@ -16,20 +16,28 @@ export function AuthProvider({ children }: Props) {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !!tokenStore.get());
 
-  const logout = useCallback(() => {
+  // Local sign-out: forget the token. Used when the API has already rejected it.
+  const forget = useCallback(() => {
     tokenStore.clear();
     setEmail(null);
   }, []);
 
+  // The Đăng xuất button: also ends every session of this account on the server, so a copy of the
+  // token (a stolen laptop, a leaked browser profile) stops working at once.
+  const logout = useCallback(() => {
+    void endSessionsOnServer();
+    forget();
+  }, [forget]);
+
   useEffect(() => {
-    setUnauthorizedHandler(logout);
+    setUnauthorizedHandler(forget);
     if (!tokenStore.get()) return;
     api
       .get<{ email: string }>("/auth/me")
       .then((me) => setEmail(me.email))
       .catch(() => tokenStore.clear())
       .finally(() => setLoading(false));
-  }, [logout]);
+  }, [forget]);
 
   const login = useCallback(async (emailInput: string, password: string) => {
     const result = await api.post<{ token: string; email: string }>("/auth/login", {

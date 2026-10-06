@@ -1,9 +1,13 @@
 import type { EgoApi } from "@lineagraph/ui/graph";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4200";
+import { PUBLIC_API_URL } from "./site";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, init);
+  // A request that never answers would leave the graph on "loading" forever.
+  const res = await fetch(`${PUBLIC_API_URL}${path}`, {
+    ...init,
+    signal: init?.signal ?? AbortSignal.timeout(15_000),
+  });
   if (!res.ok) throw new Error(`API ${path} failed with ${res.status}`);
   return res.json();
 }

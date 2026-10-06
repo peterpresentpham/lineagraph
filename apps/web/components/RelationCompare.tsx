@@ -12,7 +12,7 @@ export function RelationCompare({ subjectSlug }: Props) {
   const router = useRouter();
 
   return (
-    <div className="max-w-sm">
+    <div className="max-w-sm print:hidden">
       <NodePicker
         name="b"
         label="So sánh quan hệ với..."

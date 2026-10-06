@@ -17,10 +17,24 @@ năng cốt lõi) → mục 14 (MVP và lộ trình) → mục 15–16 (câu h�
 
 ## Trạng thái
 
-- **Giai đoạn:** khung project đã dựng ở repo này (`apps/`, `packages/`), chưa có logic thật
-  (routes trả `501 not_implemented`, trang là placeholder). Xem mục 14 của `design.md` để biết
-  thứ tự làm tiếp — tuần 1–2 là chốt mô hình dữ liệu bằng dữ liệu thật rồi chạy migration Drizzle
-  thật trên Postgres.
+- **Sẵn sàng công khai (xem `deploy.md` mục "Checklist trước khi mở"):** phiên admin 30 phút và thu hồi được, giới hạn
+  đăng nhập theo địa chỉ và theo tài khoản, giới hạn riêng cho các đường đắt, cấu hình production phải đủ mới chạy,
+  `/health` kiểm tra DB, tắt êm, log JSON có mã yêu cầu, header bảo mật ở web/admin/API, font tự lưu, trang giới thiệu/nguồn/báo lỗi/
+  riêng tư/điều khoản, giấy phép dữ liệu CC BY-SA 4.0, ảnh xem trước theo bản ghi, sitemap/robots chuẩn, tìm kiếm và dòng thời gian
+  có sự kiện, script sao lưu/khôi phục và `scripts/smoke.mjs`. Vận hành: `operations.md`.
+- **Giai đoạn:** app đã chạy được: web công khai, trang admin (nhân vật, chính thể, địa điểm,
+  quan hệ, chức vụ, nguồn, kiểm tra dữ liệu) và API đều có logic thật trên Postgres.
+  Admin có menu nhóm (Nội dung, Tư liệu, Hệ thống), tìm nhanh `Ctrl/⌘+K`, nút "+ Thêm" ở mọi trang;
+  danh sách có bộ lọc lưu trên URL, chọn nhiều dòng, xoá có "Hoàn tác" (xoá mềm nhân vật, chính thể,
+  sự kiện); trang chi tiết là một trang cuộn có mục lục, thanh Lưu (`Ctrl/⌘+S`) và thêm nhanh
+  cha/mẹ, vợ/chồng, con ngay trong thẻ Quan hệ; Tổng quan liệt kê việc cần làm và thay đổi gần đây. Chưa làm:
+  hàng đợi duyệt (`/review-queue*`) và phần học thẻ (`/review/today`, `/progress`), các route này
+  vẫn trả `501 not_implemented`; importer hàng loạt, ảnh và bản đồ.
+  Đã có: sự kiện với người tham gia theo vai trò, độ chắc chắn và ghi chú tranh cãi cho quan hệ và
+  chức vụ, phiên bản thay thế của chức vụ, trích dẫn có lập trường (ủng hộ, phản bác, nhắc đến). Với các bảng, nguồn sự thật là
+  `docs/database.md` và `packages/core/src/schema/`; những mô tả bảng `parentage`, `union`,
+  `person_closure`, `kinship_ruleset` trong `design.md` là thiết kế ban đầu đã được thay bằng
+  `kg.relation`.
 - Mọi SQL, thuật toán, con số ước tính trong `design.md` vẫn là **đề xuất thiết kế, chưa chạy
   thử** — mục 16 của `design.md` liệt kê rõ chỗ đã xác minh và chưa.
 

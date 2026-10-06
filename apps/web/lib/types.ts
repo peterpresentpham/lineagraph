@@ -3,6 +3,8 @@ export type DateValue = {
   month: number | null;
   day: number | null;
   approximate: boolean;
+  /** Calendar the date was given in; Gregorian when absent. The label already says it. */
+  calendar?: "gregorian" | "julian";
   label: string;
 };
 
@@ -41,6 +43,8 @@ export type NodeRelation = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  disputeNote: string | null;
+  confidence: number | null;
   start: DateValue | null;
   end: DateValue | null;
 };
@@ -49,6 +53,8 @@ export type AttributeView = { type: string; label: string; value: string };
 
 export type PersonDetail = PersonSummary & {
   summary: string | null;
+  birthPlace: { id: string; name: string } | null;
+  deathPlace: { id: string; name: string } | null;
   body: string | null;
   names: NameEntry[];
   attributes: AttributeView[];
@@ -61,6 +67,7 @@ export type PersonDetail = PersonSummary & {
     start: DateValue | null;
     end: DateValue | null;
     disputed: boolean;
+    state: string;
   }[];
 };
 
@@ -79,6 +86,7 @@ export type PolityDetail = PolitySummary & {
     end: DateValue | null;
     seq: number | null;
     disputed: boolean;
+    state: string;
     eras: string[];
   }[];
 };
@@ -131,6 +139,8 @@ export type RelationResult = {
   } | null;
   direct: NodeRelation[];
   paths: { cost: number; steps: PathStep[] }[];
+  /** The search stopped early on a very connected graph, so more chains may exist. */
+  truncated?: boolean;
 };
 
 export type Citation = {
@@ -138,22 +148,69 @@ export type Citation = {
   locator: string | null;
   quote: string | null;
   confidence: number;
-  source: { id: string; title: string; author: string | null; url: string | null };
+  stance: "supports" | "disputes" | "mentions";
+  source: {
+    id: string;
+    title: string;
+    author: string | null;
+    url: string | null;
+    license: string | null;
+  };
 };
 
 export type SearchResult = {
   id: string;
-  kind: "person" | "polity";
+  kind: "person" | "polity" | "event";
   slug: string;
   name: string;
   matched: string;
 };
 
 export type TimelineEntry = {
-  kind: "person" | "polity";
+  kind: "person" | "polity" | "event";
   slug: string;
   name: string;
   start: DateValue | null;
   end: DateValue | null;
   detail: string | null;
+};
+
+export type EventSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  eventType: string;
+  eventTypeLabel: string;
+  start: DateValue | null;
+  end: DateValue | null;
+  place: { id: string; name: string } | null;
+  participantCount: number;
+};
+
+export type EventDetail = EventSummary & {
+  summary: string | null;
+  outcome: string | null;
+  body: string | null;
+  names: NameEntry[];
+  participants: {
+    id: string;
+    node: NodeRef;
+    role: string;
+    roleLabel: string;
+    side: number | null;
+    note: string | null;
+  }[];
+  parent: EventSummary | null;
+  children: EventSummary[];
+};
+
+export type BibliographyEntry = {
+  id: string;
+  title: string;
+  author: string | null;
+  kind: string | null;
+  url: string | null;
+  license: string | null;
+  reliability: number | null;
+  citations: number;
 };

@@ -9,7 +9,15 @@ export type ParentLink = {
   disputed: boolean;
 };
 
-export type KinshipOptions = { includeDisputed?: boolean };
+/**
+ * "vi": Vietnamese terms (nội / ngoại, bác / chú / cô / cậu / dì, anh / em by age).
+ * "neutral": terms that exist in every kinship system (cha, mẹ, con, anh chị em, cháu...), used
+ * for families outside Vietnamese culture, where a Vietnamese word would claim a distinction the
+ * family's own language does not make.
+ */
+export type KinshipTerms = "vi" | "neutral";
+
+export type KinshipOptions = { includeDisputed?: boolean; terms?: KinshipTerms };
 
 export type Kinship = {
   /** What A is to B, e.g. "ông nội" ("A là ông nội của B"). */
@@ -34,34 +42,36 @@ export type Kinship = {
 type UpPath = { ids: string[]; adoptive: boolean };
 
 const MAX_GENERATIONS = 12;
-const MAX_PATHS = 4000;
 
-/** All upward paths from `startId` (start included), grouped by the ancestor reached. */
+/**
+ * For every ancestor of `startId` (the person included), the shortest way up to them, preferring
+ * a path with no adoptive link when two are equally short. Each person is expanded once, so
+ * pedigree collapse (cousin marriages in royal houses) can no longer multiply the work.
+ */
 function ancestorPaths(startId: string, parentsOf: Map<string, ParentLink[]>) {
-  const found = new Map<string, UpPath[]>();
-  found.set(startId, [{ ids: [startId], adoptive: false }]);
-  let frontier: UpPath[] = [{ ids: [startId], adoptive: false }];
-  let total = 1;
-  for (let gen = 0; gen < MAX_GENERATIONS && frontier.length && total < MAX_PATHS; gen++) {
-    const next: UpPath[] = [];
-    for (const path of frontier) {
-      const last = path.ids[path.ids.length - 1]!;
-      for (const link of parentsOf.get(last) ?? []) {
-        if (path.ids.includes(link.parentId)) continue;
-        const extended = {
-          ids: [...path.ids, link.parentId],
-          adoptive: path.adoptive || link.variant === "adoptive",
-        };
-        next.push(extended);
-        const list = found.get(link.parentId) ?? [];
-        list.push(extended);
-        found.set(link.parentId, list);
-        total++;
+  const best = new Map<string, UpPath>([[startId, { ids: [startId], adoptive: false }]]);
+  let frontier = [startId];
+  for (let gen = 0; gen < MAX_GENERATIONS && frontier.length; gen++) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      const path = best.get(id)!;
+      for (const link of parentsOf.get(id) ?? []) {
+        const adoptive = path.adoptive || link.variant === "adoptive";
+        const known = best.get(link.parentId);
+        if (known) {
+          // Already reached. Only swap in a blood path for an adoptive one of the same length.
+          if (known.ids.length === path.ids.length + 1 && known.adoptive && !adoptive) {
+            best.set(link.parentId, { ids: [...path.ids, link.parentId], adoptive });
+          }
+          continue;
+        }
+        best.set(link.parentId, { ids: [...path.ids, link.parentId], adoptive });
+        next.push(link.parentId);
       }
     }
     frontier = next;
   }
-  return found;
+  return best;
 }
 
 export function describeKinship(
@@ -85,23 +95,19 @@ export function describeKinship(
   const upB = ancestorPaths(bId, parentsOf);
 
   let best: { pa: UpPath; pb: UpPath; score: number } | null = null;
-  for (const [ancestor, pathsA] of upA) {
-    const pathsB = upB.get(ancestor);
-    if (!pathsB) continue;
-    for (const pa of pathsA) {
-      for (const pb of pathsB) {
-        // Shortest total distance wins; blood links beat adoptive ones on a tie.
-        const score = (pa.ids.length + pb.ids.length) * 10 + (pa.adoptive || pb.adoptive ? 1 : 0);
-        if (!best || score < best.score) best = { pa, pb, score };
-      }
-    }
+  for (const [ancestor, pa] of upA) {
+    const pb = upB.get(ancestor);
+    if (!pb) continue;
+    // Shortest total distance wins; blood links beat adoptive ones on a tie.
+    const score = (pa.ids.length + pb.ids.length) * 10 + (pa.adoptive || pb.adoptive ? 1 : 0);
+    if (!best || score < best.score) best = { pa, pb, score };
   }
   if (!best) return null;
 
   const k = best.pa.ids.length - 1;
   const m = best.pb.ids.length - 1;
   const ancestorId = best.pa.ids[k]!;
-  const ctx: Ctx = { people, parentsOf };
+  const ctx: Ctx = { people, parentsOf, terms: options.terms ?? "vi" };
   const pathA = best.pa.ids;
   const pathB = best.pb.ids;
 
@@ -122,7 +128,11 @@ export function describeKinship(
   };
 }
 
-type Ctx = { people: Map<string, KinPerson>; parentsOf: Map<string, ParentLink[]> };
+type Ctx = {
+  people: Map<string, KinPerson>;
+  parentsOf: Map<string, ParentLink[]>;
+  terms: KinshipTerms;
+};
 
 const sexOf = (ctx: Ctx, id: string): Sex => ctx.people.get(id)?.sex ?? "unknown";
 
@@ -155,6 +165,7 @@ function termOf(
   const k = pathX.length - 1;
   const m = pathY.length - 1;
   const xSex = sexOf(ctx, x);
+  if (ctx.terms === "neutral") return neutralTermOf(xSex, pathX, pathY, ctx);
 
   // x is an ancestor of y.
   if (k === 0) {
@@ -236,6 +247,43 @@ function termOf(
   }
 
   // Everything further: same ancestor, counted in generations.
+  const generations = Math.max(k, m);
+  const line = lineOf(pathX, pathY, ctx.people);
+  const lineText = line === "cha" ? " theo dòng cha" : line === "mẹ" ? " theo dòng mẹ" : "";
+  return { term: "họ hàng xa", note: `cùng tổ ${generations} đời${lineText}` };
+}
+
+/** The same question as termOf, answered with terms that need no culture-specific distinctions. */
+function neutralTermOf(
+  xSex: Sex,
+  pathX: string[],
+  pathY: string[],
+  ctx: Ctx,
+): { term: string; note: string | null } {
+  const k = pathX.length - 1;
+  const m = pathY.length - 1;
+  const parentWord = (id: string) => pick(sexOf(ctx, id), "cha", "mẹ", "cha/mẹ");
+
+  if (k === 0) {
+    if (m === 1) return { term: pick(xSex, "cha", "mẹ", "cha/mẹ"), note: null };
+    if (m === 2) return { term: pick(xSex, "ông", "bà", "ông/bà"), note: null };
+    if (m === 3) return { term: pick(xSex, "cụ ông", "cụ bà", "cụ"), note: null };
+    return { term: `tổ tiên ${m} đời`, note: lineNote(pathY, ctx) };
+  }
+  if (m === 0) {
+    if (k === 1) return { term: pick(xSex, "con trai", "con gái", "con"), note: null };
+    if (k === 2) return { term: "cháu", note: null };
+    if (k === 3) return { term: "chắt", note: null };
+    return { term: `hậu duệ ${k} đời`, note: lineNote(pathX, ctx) };
+  }
+  const sibling = pick(xSex, "anh/em trai", "chị/em gái", "anh chị em");
+  if (k === 1 && m === 1) return { term: sibling, note: siblingNote(pathX, pathY, ctx) };
+  // A sibling of one's parent, named by whose sibling they are instead of by a special word.
+  if (k === 1 && m === 2) return { term: `${sibling} của ${parentWord(pathY[1]!)}`, note: null };
+  if (k === 2 && m === 1) {
+    return { term: `${pick(xSex, "con trai", "con gái", "con")} của anh chị em`, note: null };
+  }
+  if (k === 2 && m === 2) return { term: "anh chị em họ đời đầu", note: null };
   const generations = Math.max(k, m);
   const line = lineOf(pathX, pathY, ctx.people);
   const lineText = line === "cha" ? " theo dòng cha" : line === "mẹ" ? " theo dòng mẹ" : "";

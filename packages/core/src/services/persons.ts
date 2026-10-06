@@ -1,15 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { notFound } from "../errors";
-import { personDate, person } from "../schema/history";
 import { node } from "../schema/kg";
 import type { PersonInput } from "../validation";
-import { deleteDates, insertDate, parseDate, toRow } from "./dates";
-import { createNode, setAttributes, softDeleteNode } from "./node";
+import { dateInsert, parseDate, toRow } from "./dates";
+import { nameAttributeCtes, softDeleteNode, uniqueSlug, withoutSource } from "./node";
 import { getNodeRelations } from "./relationships";
-import { normalizeText } from "./text";
-import type { Tx } from "../db";
+import { likeContains, normalizeText } from "./text";
+import { LABEL_LANGUAGE } from "./labels";
 
 export type PersonSummary = {
   id: string;
@@ -19,6 +18,8 @@ export type PersonSummary = {
   historicity: string;
   birth: ReturnType<typeof parseDate>;
   death: ReturnType<typeof parseDate>;
+  /** When the record last changed (ISO), for the sitemap. */
+  updatedAt: string;
 };
 
 type SummaryRow = {
@@ -29,6 +30,7 @@ type SummaryRow = {
   historicity: string;
   birth_edtf: string | null;
   death_edtf: string | null;
+  updated_at: Date | string;
 };
 
 const summaryFrom = (r: SummaryRow): PersonSummary => ({
@@ -39,12 +41,13 @@ const summaryFrom = (r: SummaryRow): PersonSummary => ({
   historicity: r.historicity,
   birth: parseDate(r.birth_edtf),
   death: parseDate(r.death_edtf),
+  updatedAt: new Date(r.updated_at).toISOString(),
 });
 
 // Base query for person lists: one row per person with primary name and preferred dates.
 const summarySelect = sql`
   select n.id, n.slug, pn.name, p.sex, p.historicity,
-         bd.edtf as birth_edtf, dd.edtf as death_edtf
+         bd.edtf as birth_edtf, dd.edtf as death_edtf, n.updated_at
   from kg.node n
   join history.person p on p.id = n.id
   join kg.name pn on pn.node_id = n.id and pn.is_primary
@@ -54,16 +57,42 @@ const summarySelect = sql`
   left join kg.fuzzy_date dd on dd.id = d.date_id
   where n.deleted_at is null`;
 
-export async function listPersons(opts: { q?: string; limit?: number; offset?: number }) {
-  const limit = Math.min(opts.limit ?? 50, 200);
-  const offset = opts.offset ?? 0;
+export async function listPersons(opts: {
+  q?: string;
+  sex?: string;
+  historicity?: string;
+  /** Only people that have no source at all. */
+  noSource?: boolean;
+  sort?: "name" | "birth" | "notable";
+  limit?: number;
+  offset?: number;
+}) {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const offset = Math.max(opts.offset ?? 0, 0);
   const q = opts.q ? normalizeText(opts.q) : null;
-  const filter = q
-    ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${"%" + q + "%"})`
-    : sql``;
+  const filter = sql`${
+    q
+      ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${likeContains(q)})`
+      : sql``
+  } ${opts.sex ? sql`and p.sex = ${opts.sex}` : sql``} ${
+    opts.historicity ? sql`and p.historicity = ${opts.historicity}` : sql``
+  } ${opts.noSource ? withoutSource : sql``}`;
+  // "Notable" favours people who held office or are well connected and cited, so a home page
+  // does not open on whoever sorts first alphabetically.
+  const notability = sql`(
+    (select count(*) from kg.relation r where r.from_id = n.id or r.to_id = n.id)
+    + 3 * (select count(*) from history.tenure t where t.person_id = n.id)
+    + 2 * (select count(*) from kg.citation c where c.subject_id = n.id)
+  ) desc, pn.name_normalized`;
+  const order =
+    opts.sort === "birth"
+      ? sql`bd.earliest_jdn nulls last, pn.name_normalized`
+      : opts.sort === "notable"
+        ? notability
+        : sql`pn.name_normalized`;
   const [rows, [{ count }]] = await Promise.all([
     db.execute<SummaryRow>(
-      sql`${summarySelect} ${filter} order by pn.name_normalized limit ${limit} offset ${offset}`,
+      sql`${summarySelect} ${filter} order by ${order} limit ${limit} offset ${offset}`,
     ),
     db.execute<{ count: number }>(
       sql`select count(*)::int as count from kg.node n join history.person p on p.id = n.id
@@ -109,22 +138,36 @@ export async function getPerson(slugOrId: string) {
     await Promise.all([
       getPersonSummaries([id]),
       db
-        .select({ sex: person.sex, historicity: person.historicity, summary: person.summary })
-        .from(person)
-        .where(eq(person.id, id))
+        .execute<{
+          sex: string;
+          historicity: string;
+          summary: string | null;
+          birth_place_id: string | null;
+          birth_place_name: string | null;
+          death_place_id: string | null;
+          death_place_name: string | null;
+        }>(
+          sql`select p.sex, p.historicity, p.summary, p.birth_place_id, bp.name as birth_place_name,
+                     p.death_place_id, dp.name as death_place_name
+              from history.person p
+              left join history.place bp on bp.id = p.birth_place_id
+              left join history.place dp on dp.id = p.death_place_id
+              where p.id = ${id}`,
+        )
         .then(([row]) => row!),
       db.execute<{
         name: string;
         kind: string;
         language: string | null;
+        script: string | null;
         is_primary: boolean;
       }>(
-        sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
+        sql`select name, kind, language, script, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
       ),
       db.execute<{ type: string; label: string | null; value: string }>(
         sql`select a.type, l.text as label, a.value
             from kg.attribute a
-            left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = 'vi'
+            left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = ${LABEL_LANGUAGE}
             where a.node_id = ${id} order by a.sort_order`,
       ),
       db.select({ body: node.body }).from(node).where(eq(node.id, id)),
@@ -145,12 +188,13 @@ export async function getPerson(slugOrId: string) {
         end_edtf: string | null;
         seq: number | null;
         disputed: boolean;
+        state: string;
       }>(
         sql`select t.id, t.polity_id, pn.slug as polity_slug, pm.name as polity_name, t.office_type,
-                   sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed
+                   sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed, t.state
             from history.tenure t
             left join kg.node pn on pn.id = t.polity_id and pn.deleted_at is null
-            left join kg.name pm on pm.node_id = t.polity_id and pm.is_primary
+            left join kg.name pm on pm.node_id = pn.id and pm.is_primary
             left join kg.fuzzy_date sd on sd.id = t.start_id
             left join kg.fuzzy_date ed on ed.id = t.end_id
             where t.person_id = ${id}
@@ -165,10 +209,17 @@ export async function getPerson(slugOrId: string) {
     sex: meta.sex,
     historicity: meta.historicity,
     summary: meta.summary,
+    birthPlace: meta.birth_place_id
+      ? { id: meta.birth_place_id, name: meta.birth_place_name! }
+      : null,
+    deathPlace: meta.death_place_id
+      ? { id: meta.death_place_id, name: meta.death_place_name! }
+      : null,
     names: names.map((n) => ({
       name: n.name,
       kind: n.kind,
       language: n.language,
+      script: n.script,
       isPrimary: n.is_primary,
     })),
     body: bodyRow?.body ?? null,
@@ -177,11 +228,15 @@ export async function getPerson(slugOrId: string) {
     siblings,
     tenures: tenureRows.map((t) => ({
       id: t.id,
-      polity: t.polity_id ? { id: t.polity_id, slug: t.polity_slug, name: t.polity_name } : null,
+      polity:
+        t.polity_id && t.polity_name
+          ? { id: t.polity_id, slug: t.polity_slug, name: t.polity_name }
+          : null,
       officeType: t.office_type,
       start: parseDate(t.start_edtf),
       end: parseDate(t.end_edtf),
       disputed: t.disputed,
+      state: t.state,
     })),
   };
 }
@@ -200,43 +255,39 @@ export async function getPersonForEdit(slugOrId: string) {
     attributes: detail.attributes.map((a) => ({ type: a.type, value: a.value })),
     birth: detail.birth,
     death: detail.death,
+    birthPlaceId: detail.birthPlace?.id ?? null,
+    deathPlaceId: detail.deathPlace?.id ?? null,
+    birthPlaceName: detail.birthPlace?.name ?? null,
+    deathPlaceName: detail.deathPlace?.name ?? null,
   };
 }
 
-async function setPersonDates(tx: Tx, personId: string, input: PersonInput) {
-  const old = await tx
-    .select({ dateId: personDate.dateId })
-    .from(personDate)
-    .where(and(eq(personDate.personId, personId), inArray(personDate.kind, ["birth", "death"])));
-  await tx
-    .delete(personDate)
-    .where(and(eq(personDate.personId, personId), inArray(personDate.kind, ["birth", "death"])));
-  await deleteDates(
-    tx,
-    old.map((o) => o.dateId),
-  );
-  for (const [kind, value] of [
-    ["birth", input.birth],
-    ["death", input.death],
-  ] as const) {
-    const dateId = await insertDate(tx, value);
-    if (dateId) await tx.insert(personDate).values({ personId, kind, dateId, isPreferred: true });
-  }
-}
-
 export async function createPerson(input: PersonInput) {
-  return db.transaction(async (tx) => {
-    const created = await createNode(tx, "person", input.names, input.body);
-    await setAttributes(tx, created.id, input.attributes);
-    await tx.insert(person).values({
-      id: created.id,
-      sex: input.sex,
-      historicity: input.historicity,
-      summary: input.summary,
-    });
-    await setPersonDates(tx, created.id, input);
-    return created;
+  // One statement (node, person, names, attributes, dates) after one slug lookup; each insert
+  // selects `from created`, so the rows can reference the node inserted in the same statement.
+  const id = randomUUID();
+  const slug = await uniqueSlug(input.names);
+  const dates = (["birth", "death"] as const).flatMap((kind) => {
+    const date = dateInsert(input[kind]);
+    if (!date.insert) return [];
+    return [
+      sql`${sql.raw(kind)}_date as (${date.insert})`,
+      sql`${sql.raw(kind)}_link as (
+        insert into history.person_date (person_id, kind, date_id, is_preferred)
+        select id, ${kind}, ${date.id}::uuid, true from created)`,
+    ];
   });
+  await db.execute(sql`
+    with created as (
+      insert into kg.node (id, kind, slug, body, review_state)
+      values (${id}::uuid, 'person', ${slug}, ${input.body}, 'approved') returning id),
+    person_row as (
+      insert into history.person (id, sex, historicity, summary, birth_place_id, death_place_id)
+      select id, ${input.sex}, ${input.historicity}, ${input.summary},
+             ${input.birthPlaceId ?? null}::uuid, ${input.deathPlaceId ?? null}::uuid from created),
+    ${sql.join([...nameAttributeCtes(id, input.names, input.attributes, "created"), ...dates], sql`, `)}
+    select id from created`);
+  return { id, slug };
 }
 
 // SQL for one date kind (birth/death) of an update, as CTEs of the single statement below.
@@ -284,38 +335,18 @@ export async function updatePerson(id: string, input: PersonInput) {
   // one round trip and atomic without an explicit transaction. Inserts select `from upd`, so a
   // missing/deleted person inserts nothing and is reported as not found.
   if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("nhân vật");
-  const names = input.names.map((n) => ({
-    name: n.name,
-    name_normalized: normalizeText(n.name),
-    kind: n.kind,
-    language: n.language || null,
-    is_primary: n.isPrimary,
-  }));
-  const attributes = input.attributes.map((a, i) => ({ type: a.type, value: a.value, sort: i }));
   const [result] = await db.execute<{ updated: number }>(sql`
     with upd as (
       update history.person set sex = ${input.sex}, historicity = ${input.historicity},
-        summary = ${input.summary}
+        summary = ${input.summary}, birth_place_id = ${input.birthPlaceId ?? null}::uuid,
+        death_place_id = ${input.deathPlaceId ?? null}::uuid
       where id = ${id}::uuid
         and exists (select 1 from kg.node where id = ${id}::uuid and deleted_at is null)
       returning id),
     node_upd as (
       update kg.node set updated_at = now()${input.body !== undefined ? sql`, body = ${input.body}` : sql``}
       where id in (select id from upd)),
-    names_del as (delete from kg.name where node_id = ${id}::uuid),
-    names_ins as (
-      insert into kg.name (node_id, name, name_normalized, kind, language, is_primary)
-      select ${id}::uuid, x.name, x.name_normalized, x.kind, x.language, x.is_primary
-      from jsonb_to_recordset(${JSON.stringify(names)}::jsonb) as x(
-        name text, name_normalized text, kind text, language text, is_primary boolean),
-        upd),
-    attr_del as (delete from kg.attribute where node_id = ${id}::uuid),
-    attr_ins as (
-      insert into kg.attribute (node_id, type, value, sort_order)
-      select ${id}::uuid, x.type, x.value, x.sort
-      from jsonb_to_recordset(${JSON.stringify(attributes)}::jsonb) as x(
-        type text, value text, sort int),
-        upd)
+    ${sql.join(nameAttributeCtes(id, input.names, input.attributes, "upd"), sql`, `)}
     ${dateCtes(id, "birth", input.birth)}
     ${dateCtes(id, "death", input.death)}
     select count(*)::int as updated from upd`);
@@ -323,6 +354,5 @@ export async function updatePerson(id: string, input: PersonInput) {
 }
 
 export async function deletePerson(id: string) {
-  await resolveId(id);
-  await db.transaction((tx) => softDeleteNode(tx, id));
+  await softDeleteNode(id, "person");
 }

@@ -18,6 +18,7 @@ export function DateField({ label, value, onChange }: Props) {
       month: value?.month ?? null,
       day: value?.day ?? null,
       approximate: value?.approximate ?? false,
+      calendar: value?.calendar,
       ...patch,
     };
     onChange(Number.isNaN(next.year) && !next.month && !next.day ? null : next);
@@ -25,7 +26,7 @@ export function DateField({ label, value, onChange }: Props) {
   return (
     <Field
       label={label}
-      hint="Chỉ nhập năm nếu không rõ ngày tháng. Năm trước Công nguyên nhập số âm."
+      hint="Chỉ nhập năm nếu không rõ ngày tháng. Năm trước Công nguyên nhập số âm (1 TCN là -1, không có năm 0). Dùng lịch Julius cho ngày trước năm 1582 nếu nguồn ghi theo lịch đó."
     >
       <div className="flex flex-wrap items-center gap-2">
         <Input
@@ -53,6 +54,16 @@ export function DateField({ label, value, onChange }: Props) {
           value={value?.day ?? ""}
           onChange={(e) => update({ day: toNumber(e.target.value) })}
         />
+        <select
+          aria-label="Lịch"
+          disabled={!value}
+          value={value?.calendar ?? "gregorian"}
+          onChange={(e) => update({ calendar: e.target.value as "gregorian" | "julian" })}
+          className="border-input bg-background text-foreground focus-visible:ring-ring h-10 rounded-lg border px-2 text-sm outline-none focus-visible:ring-2 disabled:opacity-50"
+        >
+          <option value="gregorian">Lịch Gregorius</option>
+          <option value="julian">Lịch Julius</option>
+        </select>
         <Label className="flex items-center gap-2 font-normal">
           <Checkbox
             checked={value?.approximate ?? false}

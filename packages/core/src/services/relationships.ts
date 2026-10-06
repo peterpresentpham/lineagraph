@@ -1,14 +1,14 @@
-import { eq, sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "../db";
 import { ServiceError, notFound } from "../errors";
-import { relation } from "../schema/kg";
-import type { Tx } from "../db";
 import type { RelationshipInput } from "../validation";
 import type { Sex } from "../relations/kinship";
 import { sexAwareLabel } from "../relations/roleLabel";
-import { cached } from "./cache";
-import { deleteDates, insertDate, parseDate } from "./dates";
+import { TYPES_CACHE_KEY, cached } from "./cache";
+import { dateInsert, parseDate } from "./dates";
+import { likeContains, normalizeText } from "./text";
 import type { DateView } from "./dates";
+import { LABEL_LANGUAGE } from "./labels";
 
 export type NodeRef = { id: string; kind: "person" | "polity"; slug: string; name: string };
 
@@ -30,12 +30,12 @@ type TypeRow = {
 // Cached for a minute (matches the admin UI's own staleTime for the same data), so a type edit
 // shows up within a minute instead of needing a server restart.
 async function loadTypes(): Promise<Map<string, TypeRow>> {
-  return cached("relation-types", 60_000, async () => {
+  return cached(TYPES_CACHE_KEY, 60_000, async () => {
     const rows = await db.execute<TypeRow>(
       sql`select t.code, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic,
                  t.default_importance, t.subject_kinds, t.object_kinds, t.category, l.text as label
           from kg.relation_type t
-          left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = 'vi'`,
+          left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = ${LABEL_LANGUAGE}`,
     );
     return new Map(rows.map((r) => [r.code, r]));
   });
@@ -87,7 +87,20 @@ async function normalize(input: RelationshipInput, ignoreId?: string) {
   }
   if (type.is_symmetric && fromId > toId) [fromId, toId] = [toId, fromId];
 
-  const refs = await getNodeRefs([fromId, toId]);
+  // The endpoint lookup and the cycle check do not depend on each other: one round trip, not two.
+  const [refs, cycle] = await Promise.all([
+    getNodeRefs([fromId, toId]),
+    type.is_acyclic
+      ? db.execute<{ found: boolean }>(
+          sql`with recursive down(id) as (
+                select to_id from kg.relation where type = ${type.code} and from_id = ${toId}
+                  ${ignoreId ? sql`and id <> ${ignoreId}::uuid` : sql``}
+                union
+                select r.to_id from kg.relation r join down d on r.from_id = d.id where r.type = ${type.code}
+              ) select exists(select 1 from down where id = ${fromId}) as found`,
+        )
+      : Promise.resolve(null),
+  ]);
   const from = refs.get(fromId);
   const to = refs.get(toId);
   if (!from || !to) throw notFound("đối tượng");
@@ -101,22 +114,12 @@ async function normalize(input: RelationshipInput, ignoreId?: string) {
       `Quan hệ "${type.label ?? type.code}" chỉ áp dụng giữa ${type.subject_kinds.map(kindName).join("/")} và ${type.object_kinds.map(kindName).join("/")}`,
     );
   }
-
-  if (type.is_acyclic) {
-    // Reject when `from` is already reachable from `to` along the same type.
-    const [hit] = await db.execute<{ found: boolean }>(
-      sql`with recursive down(id) as (
-            select to_id from kg.relation where type = ${type.code} and from_id = ${toId}
-              ${ignoreId ? sql`and id <> ${ignoreId}::uuid` : sql``}
-            union
-            select r.to_id from kg.relation r join down d on r.from_id = d.id where r.type = ${type.code}
-          ) select exists(select 1 from down where id = ${fromId}) as found`,
+  // Reject when `from` is already reachable from `to` along the same type.
+  if (cycle?.[0]?.found) {
+    throw new ServiceError(
+      400,
+      "Quan hệ này tạo thành vòng lặp (ví dụ một người là tổ tiên của chính mình)",
     );
-    if (hit?.found)
-      throw new ServiceError(
-        400,
-        "Quan hệ này tạo thành vòng lặp (ví dụ một người là tổ tiên của chính mình)",
-      );
   }
   return { type: type.code, fromId, toId };
 }
@@ -135,6 +138,8 @@ export type RelationshipView = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  disputeNote: string | null;
+  confidence: number | null;
   importance: number;
   start: DateView | null;
   end: DateView | null;
@@ -149,15 +154,19 @@ type RelationRow = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  dispute_note: string | null;
+  confidence: number | null;
   importance: number;
   start_edtf: string | null;
   end_edtf: string | null;
 };
 
 const relationSelect = sql`
-  select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.note, r.disputed, r.importance,
-         sd.edtf as start_edtf, ed.edtf as end_edtf
+  select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.note, r.disputed,
+         r.dispute_note, r.confidence, r.importance, sd.edtf as start_edtf, ed.edtf as end_edtf
   from kg.relation r
+  join kg.node fn on fn.id = r.from_id and fn.deleted_at is null
+  join kg.node tn on tn.id = r.to_id and tn.deleted_at is null
   left join kg.fuzzy_date sd on sd.id = r.start_id
   left join kg.fuzzy_date ed on ed.id = r.end_id`;
 
@@ -189,6 +198,8 @@ async function toViews(rows: RelationRow[]): Promise<RelationshipView[]> {
         label: r.label,
         note: r.note,
         disputed: r.disputed,
+        disputeNote: r.dispute_note,
+        confidence: r.confidence,
         importance: r.importance,
         start: parseDate(r.start_edtf),
         end: parseDate(r.end_edtf),
@@ -204,20 +215,19 @@ export async function listRelationships(opts: {
   limit?: number;
   offset?: number;
 }) {
-  const limit = Math.min(opts.limit ?? 100, 500);
+  const limit = Math.min(Math.max(opts.limit ?? 100, 1), 500);
   const where = [sql`true`];
   if (opts.nodeId)
     where.push(sql`(r.from_id = ${opts.nodeId}::uuid or r.to_id = ${opts.nodeId}::uuid)`);
   if (opts.type) where.push(sql`r.type = ${opts.type}`);
   if (opts.q) {
-    const needle =
-      "%" + opts.q.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d") + "%";
+    const needle = likeContains(normalizeText(opts.q));
     where.push(
       sql`exists (select 1 from kg.name x where x.node_id in (r.from_id, r.to_id) and x.name_normalized like ${needle})`,
     );
   }
   const rows = await db.execute<RelationRow>(
-    sql`${relationSelect} where ${sql.join(where, sql` and `)} order by r.created_at desc limit ${limit} offset ${opts.offset ?? 0}`,
+    sql`${relationSelect} where ${sql.join(where, sql` and `)} order by r.created_at desc limit ${limit} offset ${Math.max(opts.offset ?? 0, 0)}`,
   );
   return toViews(rows);
 }
@@ -241,6 +251,8 @@ export type NodeRelation = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  disputeNote: string | null;
+  confidence: number | null;
   start: DateView | null;
   end: DateView | null;
 };
@@ -265,70 +277,75 @@ export async function getNodeRelations(nodeId: string): Promise<NodeRelation[]> 
       label: v.label,
       note: v.note,
       disputed: v.disputed,
+      disputeNote: v.disputeNote,
+      confidence: v.confidence,
       start: v.start,
       end: v.end,
     };
   });
 }
 
+// The three writes below are each ONE statement of data-modifying CTEs (dates, the row, cleanup of
+// old dates): atomic without an explicit transaction and a single network round trip.
+
+function withCtes(parts: (SQL | null)[]): SQL {
+  const list = parts.filter((p): p is SQL => p !== null);
+  return sql.join(list, sql`, `);
+}
+
 export async function createRelationship(input: RelationshipInput) {
   const { type, fromId, toId } = await normalize(input);
   const importance = input.importance ?? (await loadTypes()).get(type)?.default_importance ?? 3;
-  return db.transaction(async (tx) => {
-    const [row] = await tx
-      .insert(relation)
-      .values({
-        type,
-        fromId,
-        toId,
-        variant: input.variant,
-        label: input.label,
-        note: input.note,
-        disputed: input.disputed,
-        importance,
-        startId: await insertDate(tx, input.start),
-        endId: await insertDate(tx, input.end),
-        state: "approved",
-      })
-      .returning({ id: relation.id });
-    return row!;
-  });
+  const start = dateInsert(input.start);
+  const end = dateInsert(input.end);
+  const [row] = await db.execute<{ id: string }>(sql`
+    with noop as (select 1)
+    ${start.insert ? sql`, sd as (${start.insert})` : sql``}
+    ${end.insert ? sql`, ed as (${end.insert})` : sql``}
+    insert into kg.relation (type, from_id, to_id, variant, label, note, disputed, dispute_note,
+                             confidence, importance, start_id, end_id, state)
+    values (${type}, ${fromId}::uuid, ${toId}::uuid, ${input.variant}, ${input.label}, ${input.note},
+            ${input.disputed}, ${input.disputeNote}, ${input.confidence ?? null}, ${importance},
+            ${start.id}::uuid, ${end.id}::uuid, 'approved')
+    returning id`);
+  return row!;
 }
 
 export async function updateRelationship(id: string, input: RelationshipInput) {
   const { type, fromId, toId } = await normalize(input, id);
-  await db.transaction(async (tx: Tx) => {
-    const [old] = await tx.select().from(relation).where(eq(relation.id, id));
-    if (!old) throw notFound("quan hệ");
-    await tx
-      .update(relation)
-      .set({
-        type,
-        fromId,
-        toId,
-        variant: input.variant,
-        label: input.label,
-        note: input.note,
-        disputed: input.disputed,
-        importance: input.importance ?? old.importance,
-        startId: await insertDate(tx, input.start),
-        endId: await insertDate(tx, input.end),
-      })
-      .where(eq(relation.id, id));
-    await deleteDates(tx, [old.startId, old.endId]);
-  });
+  const exists = sql`exists (select 1 from old)`;
+  const start = dateInsert(input.start, exists);
+  const end = dateInsert(input.end, exists);
+  const [result] = await db.execute<{ updated: number }>(sql`
+    with old as (select start_id, end_id from kg.relation where id = ${id}::uuid),
+    ${withCtes([
+      start.insert ? sql`sd as (${start.insert})` : null,
+      end.insert ? sql`ed as (${end.insert})` : null,
+      sql`upd as (
+        update kg.relation set type = ${type}, from_id = ${fromId}::uuid, to_id = ${toId}::uuid,
+          variant = ${input.variant}, label = ${input.label}, note = ${input.note},
+          disputed = ${input.disputed}, dispute_note = ${input.disputeNote},
+          confidence = ${input.confidence ?? null},
+          importance = coalesce(${input.importance ?? null}::smallint, importance),
+          start_id = ${start.id}::uuid, end_id = ${end.id}::uuid
+        where id = ${id}::uuid returning id)`,
+      sql`gone as (
+        delete from kg.fuzzy_date
+        where id in (select start_id from old union select end_id from old))`,
+    ])}
+    select count(*)::int as updated from upd`);
+  if (!result?.updated) throw notFound("quan hệ");
 }
 
 export async function deleteRelationship(id: string) {
-  await db.transaction(async (tx: Tx) => {
-    const [old] = await tx.select().from(relation).where(eq(relation.id, id));
-    if (!old) throw notFound("quan hệ");
-    await tx.execute(
-      sql`delete from kg.citation where subject_table = 'relation' and subject_id = ${id}::uuid`,
-    );
-    await tx.delete(relation).where(eq(relation.id, id));
-    await deleteDates(tx, [old.startId, old.endId]);
-  });
+  const [result] = await db.execute<{ deleted: number }>(sql`
+    with old as (delete from kg.relation where id = ${id}::uuid returning start_id, end_id),
+    cit as (delete from kg.citation where subject_table = 'relation' and subject_id = ${id}::uuid),
+    gone as (
+      delete from kg.fuzzy_date
+      where id in (select start_id from old union select end_id from old))
+    select count(*)::int as deleted from old`);
+  if (!result?.deleted) throw notFound("quan hệ");
 }
 
 export async function getRelationshipForEdit(id: string) {

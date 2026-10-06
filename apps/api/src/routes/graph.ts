@@ -8,9 +8,10 @@ import {
   getPolityGraph,
   listPersons,
   listPolities,
+  ServiceError,
 } from "@lineagraph/core";
 import { z } from "zod";
-import { handle, param } from "../http.js";
+import { flagQuery, handle, intQuery, param, strQuery, offsetQuery } from "../http.js";
 
 // Public read routes for the web app — no login.
 export const graphRouter = Router();
@@ -21,8 +22,13 @@ graphRouter.get(
     res.json(
       await listPersons({
         q: typeof req.query.q === "string" ? req.query.q : undefined,
-        limit: req.query.limit ? Number(req.query.limit) : undefined,
-        offset: req.query.offset ? Number(req.query.offset) : undefined,
+        sex: strQuery(req.query.sex),
+        historicity: strQuery(req.query.historicity),
+        noSource: flagQuery(req.query.noSource),
+        sort:
+          req.query.sort === "birth" ? "birth" : req.query.sort === "notable" ? "notable" : "name",
+        limit: intQuery(req.query.limit, "limit"),
+        offset: offsetQuery(req.query.offset) ?? 0,
       }),
     );
   }),
@@ -38,7 +44,7 @@ for (const direction of ["ancestors", "descendants"] as const) {
     `/persons/:slug/${direction}`,
     handle(async (req, res) => {
       const person = await getPerson(param(req, "slug"));
-      const depth = req.query.depth ? Number(req.query.depth) : undefined;
+      const depth = intQuery(req.query.depth, "depth");
       res.json(await getLineage(person.id, direction, depth));
     }),
   );
@@ -47,7 +53,17 @@ for (const direction of ["ancestors", "descendants"] as const) {
 graphRouter.get(
   "/polities",
   handle(async (req, res) => {
-    res.json(await listPolities({ q: typeof req.query.q === "string" ? req.query.q : undefined }));
+    res.json(
+      await listPolities({
+        q: typeof req.query.q === "string" ? req.query.q : undefined,
+        type: typeof req.query.type === "string" ? req.query.type : undefined,
+        noSource: flagQuery(req.query.noSource),
+        sort:
+          req.query.sort === "name" ? "name" : req.query.sort === "notable" ? "notable" : "date",
+        limit: intQuery(req.query.limit, "limit"),
+        offset: offsetQuery(req.query.offset),
+      }),
+    );
   }),
 );
 
@@ -56,7 +72,12 @@ graphRouter.get(
   handle(async (req, res) => res.json(await getPolity(param(req, "slug")))),
 );
 
-const csv = (v: unknown) => (typeof v === "string" && v ? v.split(",").filter(Boolean) : undefined);
+// A comma-separated list from the query string, with a ceiling on how many entries it may hold.
+const csv = (v: unknown) => {
+  const items = typeof v === "string" && v ? v.split(",").filter(Boolean) : undefined;
+  if (items && items.length > 20) throw new ServiceError(400, "Quá nhiều giá trị trong danh sách");
+  return items;
+};
 
 // Graph around one person or polity, for the browser to draw (React Flow). Capped at `limit`
 // nodes; nodes with neighbours that were cut off are listed in `hidden`.
@@ -65,11 +86,11 @@ graphRouter.get(
   handle(async (req, res) => {
     res.json(
       await getEgoGraph(param(req, "slug"), {
-        depth: req.query.depth ? Number(req.query.depth) : undefined,
-        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        depth: intQuery(req.query.depth, "depth"),
+        limit: intQuery(req.query.limit, "limit"),
         types: csv(req.query.types),
         includeDisputed: req.query.disputed !== "0",
-        minImportance: req.query.minImportance ? Number(req.query.minImportance) : undefined,
+        minImportance: intQuery(req.query.minImportance, "minImportance"),
       }),
     );
   }),
@@ -84,7 +105,7 @@ graphRouter.post(
         nodeId: z.string().uuid(),
         known: z.array(z.string().uuid()).max(1000),
         limit: z.number().int().min(1).max(100).optional(),
-        types: z.array(z.string()).optional(),
+        types: z.array(z.string().max(50)).max(20).optional(),
         includeDisputed: z.boolean().optional(),
         minImportance: z.number().int().min(1).max(5).optional(),
       })

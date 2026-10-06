@@ -18,10 +18,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Textarea,
   toast,
 } from "@lineagraph/ui";
 import { api } from "../lib/api";
-import { toDateInput } from "../lib/format";
+import { confidenceLevels, toDateInput } from "../lib/format";
 import { errorMessage, labelOf, useRegistry } from "../lib/hooks";
 import type { DateInput, DateValue } from "../lib/types";
 import { ConfirmDelete } from "./ConfirmDelete";
@@ -39,6 +40,7 @@ type Row = {
   end: DateValue | null;
   seq: number | null;
   disputed: boolean;
+  state?: string;
 };
 type Era = { name: string; start: DateInput | null; end: DateInput | null };
 type Form = {
@@ -48,6 +50,9 @@ type Form = {
   successionMode: string;
   seq: string;
   disputed: boolean;
+  confidence: string;
+  note: string;
+  alternative: boolean;
   start: DateInput | null;
   end: DateInput | null;
   eras: Era[];
@@ -59,6 +64,9 @@ const emptyForm = (personId: string | null, polityId: string | null): Form => ({
   successionMode: "",
   seq: "",
   disputed: false,
+  confidence: "",
+  note: "",
+  alternative: false,
   start: null,
   end: null,
   eras: [],
@@ -101,6 +109,9 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
         successionMode: form.successionMode || null,
         seq: form.seq === "" ? null : Number(form.seq),
         disputed: form.disputed,
+        confidence: form.confidence ? Number(form.confidence) : null,
+        note: form.note || null,
+        state: form.alternative ? "alternative" : "accepted",
         start: cleanDate(form.start),
         end: cleanDate(form.end),
         eras: form.eras.map((e) => ({ ...e, start: cleanDate(e.start), end: cleanDate(e.end) })),
@@ -130,6 +141,9 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
         successionMode: string | null;
         seq: number | null;
         disputed: boolean;
+        confidence: number | null;
+        note: string | null;
+        state: string;
         start: DateValue | null;
         end: DateValue | null;
         eras: { name: string; start: DateValue | null; end: DateValue | null }[];
@@ -141,6 +155,9 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
         successionMode: d.successionMode ?? "",
         seq: d.seq?.toString() ?? "",
         disputed: d.disputed,
+        confidence: d.confidence?.toString() ?? "",
+        note: d.note ?? "",
+        alternative: d.state === "alternative",
         start: toDateInput(d.start),
         end: toDateInput(d.end),
         eras: d.eras.map((e) => ({
@@ -338,6 +355,39 @@ export function TenuresPanel({ personId, polityId, ownerName }: Props) {
           />
           Còn tranh cãi (thời gian hoặc việc giữ chức vụ này chưa chắc chắn giữa các nguồn)
         </Label>
+        <Label className="flex items-center gap-2 font-normal">
+          <Checkbox
+            checked={form.alternative}
+            onCheckedChange={(c) => setForm({ ...form, alternative: c === true })}
+          />
+          Đây là phiên bản thay thế của một sử gia khác (không dùng để vẽ sơ đồ hay kiểm tra chồng
+          lấn)
+        </Label>
+        <Field label="Độ chắc chắn">
+          <Select
+            value={form.confidence || UNKNOWN_MODE}
+            onValueChange={(v) => setForm({ ...form, confidence: v === UNKNOWN_MODE ? "" : v })}
+          >
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={UNKNOWN_MODE}>Chưa đánh giá</SelectItem>
+              {confidenceLevels.map(([value, label]) => (
+                <SelectItem key={value} value={String(value)}>
+                  {value} · {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Ghi chú">
+          <Textarea
+            rows={2}
+            value={form.note}
+            onChange={(e) => setForm({ ...form, note: e.target.value })}
+          />
+        </Field>
         <Field label="Niên hiệu">
           <div className="flex flex-col gap-2">
             {form.eras.map((era, i) => (

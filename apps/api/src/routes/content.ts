@@ -11,6 +11,7 @@ import {
   getTenureForEdit,
   listTenures,
   personInput,
+  restoreNode,
   polityInput,
   tenureInput,
   updatePerson,
@@ -106,3 +107,16 @@ contentRouter.delete(
     res.status(204).end();
   }),
 );
+
+for (const [path, kind] of [
+  ["persons", "person"],
+  ["polities", "polity"],
+] as const) {
+  contentRouter.post(
+    `/${path}/:id/restore`,
+    handle(async (req, res) => {
+      await restoreNode(param(req, "id"), kind);
+      res.status(204).end();
+    }),
+  );
+}

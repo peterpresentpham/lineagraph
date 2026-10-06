@@ -3,6 +3,7 @@ export type DateLabel = {
   month: number | null;
   day: number | null;
   approximate: boolean;
+  calendar?: "gregorian" | "julian";
   label: string;
 };
 

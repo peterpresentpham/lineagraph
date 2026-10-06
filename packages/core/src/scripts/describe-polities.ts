@@ -6,9 +6,11 @@
 //
 // Sourcing note: facts were summarised from Vietnamese Wikipedia (Nhà Hậu Lê, Chúa Trịnh,
 // Chúa Nguyễn) and are general-knowledge level, not quotations from the primary chronicles.
+// Wikipedia text is CC BY-SA 4.0, so each polity is also given a citation to the article it was
+// summarised from (and the source carries the licence), which the site shows next to the text.
 
 import { sql } from "../db";
-import { getPolityForEdit, updatePolity } from "../index";
+import { createCitation, createSource, getPolityForEdit, updatePolity } from "../index";
 
 const texts: Record<string, { summary: string; body: string }> = {
   "nha-hau-le": {
@@ -37,7 +39,37 @@ const texts: Record<string, { summary: string; body: string }> = {
   },
 };
 
+// The Vietnamese Wikipedia article each text was summarised from.
+const articles: Record<string, string> = {
+  "nha-hau-le": "Nhà Hậu Lê",
+  "chua-trinh": "Chúa Trịnh",
+  "chua-nguyen": "Chúa Nguyễn",
+};
+const WIKIPEDIA_TITLE = "Wikipedia tiếng Việt";
+
+async function ensureWikipedia(): Promise<string> {
+  const [existing] = await sql<
+    { id: string }[]
+  >`select id from kg.source where title = ${WIKIPEDIA_TITLE} limit 1`;
+  if (existing) {
+    // An earlier run may have left the licence empty.
+    await sql`update kg.source set license = coalesce(license, 'CC BY-SA 4.0') where id = ${existing.id}`;
+    return existing.id;
+  }
+  const created = await createSource({
+    title: WIKIPEDIA_TITLE,
+    author: "Những người đóng góp cho Wikipedia",
+    kind: "Bách khoa toàn thư trực tuyến",
+    url: "https://vi.wikipedia.org/",
+    license: "CC BY-SA 4.0",
+    reliability: 3,
+    note: null,
+  });
+  return created.id;
+}
+
 async function main() {
+  const wikipediaId = await ensureWikipedia();
   for (const [slug, text] of Object.entries(texts)) {
     const current = await getPolityForEdit(slug);
     if (current.summary || current.body) {
@@ -46,6 +78,22 @@ async function main() {
     }
     await updatePolity(current.id, { ...current, summary: text.summary, body: text.body });
     console.log(`Đã cập nhật ${slug}.`);
+  }
+  // The citation is added whether or not the text was written now: it states where the text came from.
+  for (const [slug, article] of Object.entries(articles)) {
+    const polity = await getPolityForEdit(slug);
+    await createCitation({
+      subjectTable: "polity",
+      subjectId: polity.id,
+      sourceId: wikipediaId,
+      locator: `Bài "${article}"`,
+      quote: null,
+      confidence: 3,
+      stance: "supports",
+    }).catch((err) => {
+      // Already there from an earlier run (the unique index on subject, source and locator).
+      if (err?.cause?.code !== "23505" && err?.code !== "23505") throw err;
+    });
   }
   await sql.end();
 }

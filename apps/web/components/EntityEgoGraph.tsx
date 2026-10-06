@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Network } from "lucide-react";
 import { Button } from "@lineagraph/ui";
 import { egoApi } from "@/lib/egoApi";
-import { renderNodeLink } from "./GraphClient";
+import { renderNodeLink } from "./renderNodeLink";
 
 const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoGraph), {
   ssr: false,
@@ -33,7 +33,7 @@ export function EntityEgoGraph({ slug, height = 420 }: Props) {
       <button
         type="button"
         onClick={() => setShow(true)}
-        className="text-muted-foreground hover:border-primary hover:text-foreground bg-dots flex h-32 w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed transition-colors"
+        className="text-muted-foreground hover:border-primary hover:text-foreground bg-dots flex h-32 w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed transition-colors print:hidden"
       >
         <Network className="size-5" />
         Xem sơ đồ quan hệ

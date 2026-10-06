@@ -5,20 +5,36 @@ import {
   createSource,
   deleteCitation,
   deleteSource,
+  listBibliography,
   listCitations,
   listSources,
   sourceInput,
   updateSource,
 } from "@lineagraph/core";
-import { handle, param } from "../http.js";
+import { handle, intQuery, offsetQuery, param } from "../http.js";
 import { requireAdmin } from "../middleware/auth.js";
 
 // Sources + citations: public read (source transparency), write is admin-only — design doc section 9.
 export const provenanceRouter = Router();
 
+// The full table, with editors' notes: admin only. The public reads the bibliography below.
 provenanceRouter.get(
   "/sources",
+  requireAdmin,
   handle(async (_req, res) => res.json(await listSources())),
+);
+
+// Public reading list: sources that back at least one live record, without editorial notes.
+provenanceRouter.get(
+  "/bibliography",
+  handle(async (req, res) => {
+    res.json(
+      await listBibliography({
+        limit: intQuery(req.query.limit, "limit"),
+        offset: offsetQuery(req.query.offset),
+      }),
+    );
+  }),
 );
 
 provenanceRouter.get(

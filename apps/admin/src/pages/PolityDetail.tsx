@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import {
   Button,
   Select,
@@ -10,26 +10,28 @@ import {
   SelectTrigger,
   SelectValue,
   Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Textarea,
   toast,
 } from "@lineagraph/ui";
-import { NotFound } from "../components/NotFound";
 import { AttributesField } from "../components/AttributesField";
+import { Breadcrumb } from "../components/Breadcrumb";
 import { CitationsPanel } from "../components/CitationsPanel";
 import { DateField, cleanDate } from "../components/DateField";
+import { DetailLayout, type OutlineItem } from "../components/detail/DetailLayout";
+import { SaveBar } from "../components/detail/SaveBar";
+import { SectionCard } from "../components/detail/SectionCard";
 import { Field } from "../components/Field";
 import { FormSkeleton } from "../components/FormSkeleton";
 import { NamesField, emptyNames } from "../components/NamesField";
 import { NodeGraph } from "../components/NodeGraph";
+import { NotFound } from "../components/NotFound";
 import { RelationsPanel } from "../components/RelationsPanel";
 import { TenuresPanel } from "../components/TenuresPanel";
 import { api } from "../lib/api";
 import { toDateInput } from "../lib/format";
-import { errorMessage, useRegistry } from "../lib/hooks";
+import { errorMessage, useRegistry, useSaveShortcut, useUnsavedChangesGuard } from "../lib/hooks";
+import { citationsOf, eventsOfNode, relationsOfNode, tenuresOf } from "../lib/queries";
+import { WEB_URL } from "../lib/site";
 import type { AttributeValue, DateInput, DateValue, NameValue } from "../lib/types";
 
 type Form = {
@@ -65,6 +67,8 @@ const toBody = (f: Form) => ({
   ended: cleanDate(f.ended),
 });
 
+// One page per polity: basic info in cards at the top, then its relationships, office-holders,
+// events and sources in sections of the same page.
 export function PolityDetail() {
   const { id = "new" } = useParams();
   const isNew = id === "new";
@@ -72,8 +76,15 @@ export function PolityDetail() {
   const queryClient = useQueryClient();
   const { data: types } = useRegistry("polity_type");
   const [form, setForm] = useState<Form>(emptyForm());
+  const [baseline, setBaseline] = useState<Form>(emptyForm());
   // Serialized request body of the form as loaded; used to tell whether anything was edited.
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(() =>
+    isNew ? JSON.stringify(toBody(emptyForm())) : null,
+  );
+  const formRef = useRef(form);
+  const savedRef = useRef(saved);
+  formRef.current = form;
+  savedRef.current = saved;
 
   const { data, isError, isLoading } = useQuery({
     queryKey: ["polity-edit", id],
@@ -81,7 +92,10 @@ export function PolityDetail() {
     queryFn: () => api.get<EditData>(`/polities/${id}/edit`),
   });
   useEffect(() => {
-    if (data) {
+    // A background refetch must not overwrite edits the admin is in the middle of making.
+    const editing =
+      savedRef.current !== null && JSON.stringify(toBody(formRef.current)) !== savedRef.current;
+    if (data && !editing) {
       const loaded = {
         ...data,
         summary: data.summary ?? "",
@@ -90,28 +104,58 @@ export function PolityDetail() {
         ended: toDateInput(data.ended),
       };
       setForm(loaded);
+      setBaseline(loaded);
       setSaved(JSON.stringify(toBody(loaded)));
     }
   }, [data]);
 
-  const isDirty = isNew || JSON.stringify(toBody(form)) !== saved;
+  const hasEdits = saved !== null && JSON.stringify(toBody(form)) !== saved;
+  const allowLeave = useUnsavedChangesGuard(hasEdits);
+
+  const relations = useQuery({ ...relationsOfNode(id), enabled: !isNew });
+  const members = useQuery({ ...tenuresOf(`polityId=${id}`), enabled: !isNew });
+  const citations = useQuery({ ...citationsOf("polity", id), enabled: !isNew });
+  const events = useQuery({ ...eventsOfNode(id), enabled: !isNew });
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (_addAnother: boolean) => {
       const body = toBody(form);
       if (isNew) return api.post<{ id: string }>("/polities", body);
       await api.put(`/polities/${id}`, body);
       return { id };
     },
-    onSuccess: (result) => {
+    onSuccess: (result, addAnother) => {
       toast.success(isNew ? "Đã thêm chính thể" : "Đã lưu");
       queryClient.invalidateQueries({ queryKey: ["polities"] });
       queryClient.invalidateQueries({ queryKey: ["polity-edit", id] });
+      queryClient.invalidateQueries({ queryKey: ["relationships"] });
+      queryClient.invalidateQueries({ queryKey: ["tenures"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
-      if (isNew) navigate(`/polities/${result.id}`, { replace: true });
+      if (isNew && addAnother) {
+        // Keep the type for the next one: polities are usually entered in runs of one kind.
+        const next = { ...emptyForm(), polityType: form.polityType };
+        setForm(next);
+        setBaseline(next);
+        setSaved(JSON.stringify(toBody(next)));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+      // What was just saved is the new baseline, so the form is clean again.
+      setBaseline(form);
+      setSaved(JSON.stringify(toBody(form)));
+      if (isNew) {
+        allowLeave();
+        navigate(`/polities/${result.id}`, { replace: true });
+      }
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+
+  const canSave = isNew || hasEdits;
+  const submit = (addAnother = false) => {
+    if (canSave && !save.isPending) save.mutate(addAnother);
+  };
+  useSaveShortcut(() => submit(), canSave);
 
   if (isError)
     return (
@@ -122,112 +166,186 @@ export function PolityDetail() {
       />
     );
   const primaryName = form.names.find((n) => n.isPrimary)?.name;
+  const node = { id, kind: "polity" as const, slug: data?.slug ?? "", name: primaryName ?? "" };
 
-  const info = (
-    <form
-      className="flex max-w-3xl flex-col gap-5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (isDirty) save.mutate();
-      }}
-    >
-      <NamesField value={form.names} onChange={(names) => setForm({ ...form, names })} />
-      <Field label="Loại chính thể">
-        <Select
-          value={form.polityType}
-          onValueChange={(polityType) => setForm({ ...form, polityType })}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {types?.map((t) => (
-              <SelectItem key={t.code} value={t.code}>
-                {t.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      <DateField
-        label="Bắt đầu"
-        value={form.started}
-        onChange={(started) => setForm({ ...form, started })}
-      />
-      <DateField
-        label="Kết thúc"
-        value={form.ended}
-        onChange={(ended) => setForm({ ...form, ended })}
-      />
-      <Field label="Tóm tắt" hint="Một hai câu giới thiệu.">
-        <Textarea
-          rows={3}
-          value={form.summary}
-          onChange={(e) => setForm({ ...form, summary: e.target.value })}
-        />
-      </Field>
-      <Field label="Lịch sử chi tiết" hint="Văn bản dài. Xuống dòng để tách đoạn.">
-        <Textarea
-          rows={10}
-          value={form.body}
-          onChange={(e) => setForm({ ...form, body: e.target.value })}
-        />
-      </Field>
-      <AttributesField
-        value={form.attributes}
-        onChange={(attributes) => setForm({ ...form, attributes })}
-      />
-      <div>
-        <Button type="submit" disabled={save.isPending || !isDirty}>
-          {save.isPending ? "Đang lưu..." : isNew ? "Tạo chính thể" : "Lưu thay đổi"}
-        </Button>
-      </div>
-    </form>
-  );
+  const outline: OutlineItem[] = [
+    { id: "general", label: "Thông tin chung" },
+    { id: "time", label: "Thời gian", warn: !form.started },
+    { id: "history", label: "Lịch sử" },
+    ...(isNew
+      ? []
+      : [
+          { id: "relations", label: "Quan hệ", count: relations.data?.length },
+          { id: "members", label: "Người giữ chức", count: members.data?.length },
+          { id: "events", label: "Sự kiện", count: events.data?.items.length },
+          {
+            id: "sources",
+            label: "Nguồn",
+            count: citations.data?.length,
+            warn: citations.data?.length === 0,
+          },
+          { id: "graph", label: "Sơ đồ" },
+        ]),
+  ];
 
   return (
     <>
-      <Link to="/polities" className="mb-3 inline-flex items-center gap-1 text-sm">
-        <ArrowLeft className="size-4" /> Chính thể
-      </Link>
+      <Breadcrumb
+        section={{ label: "Chính thể", to: "/polities" }}
+        current={isNew ? "Thêm mới" : (primaryName ?? "...")}
+      />
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        {!isNew && isLoading ? (
+          <Skeleton className="h-9 w-56" />
+        ) : (
+          <h1>{isNew ? "Thêm chính thể" : (primaryName ?? "...")}</h1>
+        )}
+        {data?.slug && (
+          <Button asChild variant="outline" size="sm">
+            <a href={`${WEB_URL}/polity/${data.slug}`} target="_blank" rel="noreferrer">
+              Xem trên web <ExternalLink />
+            </a>
+          </Button>
+        )}
+      </div>
+      <SaveBar
+        isNew={isNew}
+        dirty={hasEdits}
+        saving={save.isPending}
+        onSave={() => submit()}
+        onSaveAndNew={isNew ? () => submit(true) : undefined}
+        onDiscard={() => setForm(baseline)}
+      />
       {!isNew && isLoading ? (
-        <Skeleton className="mb-6 h-9 w-56" />
-      ) : (
-        <h1 className="mb-6">{isNew ? "Thêm chính thể" : (primaryName ?? "...")}</h1>
-      )}
-      {isNew ? (
-        info
-      ) : isLoading ? (
         <FormSkeleton />
       ) : (
-        <Tabs defaultValue="info">
-          <TabsList className="mb-6">
-            <TabsTrigger value="info">Thông tin</TabsTrigger>
-            <TabsTrigger value="relations">Quan hệ</TabsTrigger>
-            <TabsTrigger value="graph">Sơ đồ</TabsTrigger>
-            <TabsTrigger value="members">Nhân vật</TabsTrigger>
-            <TabsTrigger value="sources">Nguồn</TabsTrigger>
-          </TabsList>
-          <TabsContent value="info">{info}</TabsContent>
-          <TabsContent value="graph">
-            {data && (
-              <NodeGraph node={{ id, kind: "polity", slug: data.slug, name: primaryName ?? "" }} />
-            )}
-          </TabsContent>
-          <TabsContent value="relations">
-            {data && (
-              <RelationsPanel
-                node={{ id, kind: "polity", slug: data.slug, name: primaryName ?? "" }}
-              />
-            )}
-          </TabsContent>
-          <TabsContent value="members">
-            <TenuresPanel polityId={id} ownerName={primaryName ?? ""} />
-          </TabsContent>
-          <TabsContent value="sources">
-            <CitationsPanel subjectTable="polity" subjectId={id} />
-          </TabsContent>
-        </Tabs>
+        <DetailLayout outline={outline}>
+          {/* Only the info cards sit inside the form: the panels below open their own forms. */}
+          <form
+            className="flex flex-col gap-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit();
+            }}
+          >
+            <SectionCard id="general" title="Thông tin chung">
+              <div className="flex max-w-3xl flex-col gap-5">
+                <NamesField value={form.names} onChange={(names) => setForm({ ...form, names })} />
+                <Field label="Loại chính thể">
+                  <Select
+                    value={form.polityType}
+                    onValueChange={(polityType) => setForm({ ...form, polityType })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {types?.map((t) => (
+                        <SelectItem key={t.code} value={t.code}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Tóm tắt" hint="Một hai câu giới thiệu.">
+                  <Textarea
+                    rows={3}
+                    value={form.summary}
+                    onChange={(e) => setForm({ ...form, summary: e.target.value })}
+                  />
+                </Field>
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              id="time"
+              title="Thời gian"
+              warning={form.started ? undefined : "Chưa có ngày bắt đầu"}
+            >
+              <div className="flex max-w-3xl flex-col gap-5">
+                <DateField
+                  label="Bắt đầu"
+                  value={form.started}
+                  onChange={(started) => setForm({ ...form, started })}
+                />
+                <DateField
+                  label="Kết thúc"
+                  value={form.ended}
+                  onChange={(ended) => setForm({ ...form, ended })}
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard id="history" title="Lịch sử">
+              <div className="flex max-w-3xl flex-col gap-5">
+                <Field label="Lịch sử chi tiết" hint="Văn bản dài. Xuống dòng để tách đoạn.">
+                  <Textarea
+                    rows={10}
+                    value={form.body}
+                    onChange={(e) => setForm({ ...form, body: e.target.value })}
+                  />
+                </Field>
+                <AttributesField
+                  value={form.attributes}
+                  onChange={(attributes) => setForm({ ...form, attributes })}
+                />
+              </div>
+            </SectionCard>
+          </form>
+
+          {!isNew && (
+            <>
+              <SectionCard id="relations" title="Quan hệ" count={relations.data?.length} autoSave>
+                <RelationsPanel node={node} />
+              </SectionCard>
+              <SectionCard
+                id="members"
+                title="Người giữ chức"
+                count={members.data?.length}
+                autoSave
+              >
+                <TenuresPanel polityId={id} ownerName={primaryName ?? ""} />
+              </SectionCard>
+              <SectionCard
+                id="events"
+                title="Sự kiện"
+                count={events.data?.items.length}
+                description="Các sự kiện chính thể này tham gia. Thêm bên tham gia ở trang của sự kiện."
+              >
+                {events.data?.items.length ? (
+                  <ul className="flex flex-col gap-1.5">
+                    {events.data.items.map((e) => (
+                      <li key={e.id}>
+                        <Link to={`/events/${e.id}`} className="font-medium">
+                          {e.name}
+                        </Link>
+                        <span className="text-muted-foreground ml-2 text-sm">
+                          {e.eventTypeLabel}
+                          {e.start ? ` · ${e.start.label}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground text-sm">Chưa tham gia sự kiện nào.</p>
+                )}
+              </SectionCard>
+              <SectionCard
+                id="sources"
+                title="Nguồn"
+                count={citations.data?.length}
+                warning={citations.data?.length === 0 ? "Chưa có nguồn" : undefined}
+                autoSave
+              >
+                <CitationsPanel subjectTable="polity" subjectId={id} />
+              </SectionCard>
+              <SectionCard id="graph" title="Sơ đồ" collapsible>
+                <NodeGraph node={node} />
+              </SectionCard>
+            </>
+          )}
+        </DetailLayout>
       )}
     </>
   );

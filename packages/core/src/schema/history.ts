@@ -8,12 +8,15 @@ import {
   primaryKey,
   uniqueIndex,
   index,
+  check,
+  doublePrecision,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { node, fuzzyDate, language } from "./kg";
 
-// History domain layer: person, polity, tenure, union, parentage.
-// MVP scope skips place/event/kinship_ruleset — see design doc section 14.1.
+// History domain layer: person, polity, tenure, place and event. Kinship rulesets are not
+// modelled yet — see design doc section 14.1.
 export const history = pgSchema("history");
 
 export const polityType = history.table("polity_type", {
@@ -40,7 +43,32 @@ export const person = history.table("person", {
   sex: text("sex").notNull().default("unknown"),
   historicity: text("historicity").notNull().default("historical"),
   summary: text("summary"),
+  birthPlaceId: uuid("birth_place_id").references(() => place.id),
+  deathPlaceId: uuid("death_place_id").references(() => place.id),
 });
+
+// A place a person was born or died in. Places nest (a city inside a province inside a country)
+// through parentId; coordinates are optional.
+export const place = history.table(
+  "place",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    nameNormalized: text("name_normalized").notNull(),
+    // city, region, province, river, battlefield... (free code, no registry yet)
+    placeType: text("place_type"),
+    parentId: uuid("parent_id").references((): AnyPgColumn => place.id),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    note: text("note"),
+  },
+  (t) => [
+    index("place_name_idx").on(t.nameNormalized),
+    index("place_parent_idx").on(t.parentId),
+    check("place_latitude_check", sql`${t.latitude} between -90 and 90`),
+    check("place_longitude_check", sql`${t.longitude} between -180 and 180`),
+  ],
+);
 
 export const personDate = history.table(
   "person_date",
@@ -53,7 +81,6 @@ export const personDate = history.table(
     dateId: uuid("date_id")
       .notNull()
       .references(() => fuzzyDate.id),
-    placeId: uuid("place_id"),
     isPreferred: boolean("is_preferred").notNull().default(false),
   },
   (t) => [
@@ -92,8 +119,14 @@ export const tenure = history.table(
     seq: integer("seq"),
     // Dates or the very fact of holding this office are contested between sources.
     disputed: boolean("disputed").notNull().default(false),
+    // 1-5 how well attested; `alternative` holds a rival historian's version of the same slot.
+    confidence: smallint("confidence"),
+    note: text("note"),
+    state: text("state").notNull().default("accepted"),
   },
   (t) => [
+    check("tenure_confidence_check", sql`${t.confidence} between 1 and 5`),
+    check("tenure_state_check", sql`${t.state} in ('accepted', 'alternative')`),
     index("tenure_person_idx").on(t.personId),
     index("tenure_polity_seq_idx").on(t.polityId, t.seq),
   ],
@@ -128,4 +161,63 @@ export const tenureSuccession = history.table(
     state: text("state").notNull().default("proposed"),
   },
   (t) => [primaryKey({ columns: [t.fromTenureId, t.toTenureId] })],
+);
+
+export const eventType = history.table("event_type", {
+  code: text("code").primaryKey(),
+});
+
+export const participantRole = history.table("participant_role", {
+  code: text("code").primaryKey(),
+});
+
+// Something that happened (a battle, a treaty, a coronation). It is a kg.node of kind "event", so
+// names, citations, slugs and the audit log work as for people and polities.
+export const event = history.table(
+  "event",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .references(() => node.id),
+    eventType: text("event_type")
+      .notNull()
+      .references(() => eventType.code),
+    startId: uuid("start_id").references(() => fuzzyDate.id),
+    endId: uuid("end_id").references(() => fuzzyDate.id),
+    placeId: uuid("place_id").references(() => place.id),
+    // The campaign or war this event belongs to.
+    parentEventId: uuid("parent_event_id").references((): AnyPgColumn => event.id),
+    summary: text("summary"),
+    outcome: text("outcome"),
+  },
+  (t) => [
+    index("event_type_idx").on(t.eventType),
+    index("event_parent_idx").on(t.parentEventId),
+    index("event_place_idx").on(t.placeId),
+  ],
+);
+
+// Who took part in an event and how. `side` groups participants of a war or treaty
+// (1 = one party, 2 = the other, ...); null when the event has no sides.
+export const eventParticipant = history.table(
+  "event_participant",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => event.id),
+    nodeId: uuid("node_id")
+      .notNull()
+      .references(() => node.id),
+    role: text("role")
+      .notNull()
+      .references(() => participantRole.code),
+    side: smallint("side"),
+    note: text("note"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex("event_participant_key").on(t.eventId, t.nodeId, t.role),
+    index("event_participant_node_idx").on(t.nodeId),
+  ],
 );

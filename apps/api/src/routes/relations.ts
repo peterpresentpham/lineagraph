@@ -14,7 +14,7 @@ import {
   updateRelationship,
 } from "@lineagraph/core";
 import { z } from "zod";
-import { handle, param } from "../http.js";
+import { handle, intQuery, param, textQuery } from "../http.js";
 import { requireAdmin } from "../middleware/auth.js";
 
 // Relationships between people and polities.
@@ -26,12 +26,18 @@ export const relationsRouter = Router();
 relationsRouter.get(
   "/relations",
   handle(async (req, res) => {
-    const { a, b } = req.query;
-    if (typeof a !== "string" || typeof b !== "string" || !a || !b) {
+    const a = textQuery(req.query.a, "a");
+    const b = textQuery(req.query.b, "b");
+    if (!a || !b) {
       res.status(400).json({ error: "Cần chọn hai đối tượng (a và b)" });
       return;
     }
-    res.json(await findRelations(a, b, { includeDisputed: req.query.includeDisputed === "1" }));
+    res.json(
+      await findRelations(a, b, {
+        includeDisputed: req.query.includeDisputed === "1",
+        terms: req.query.terms === "neutral" ? "neutral" : "vi",
+      }),
+    );
   }),
 );
 
@@ -83,8 +89,8 @@ relationsRouter.get(
         nodeId: typeof q.nodeId === "string" ? q.nodeId : undefined,
         type: typeof q.type === "string" ? q.type : undefined,
         q: typeof q.q === "string" ? q.q : undefined,
-        limit: q.limit ? Number(q.limit) : undefined,
-        offset: q.offset ? Number(q.offset) : undefined,
+        limit: intQuery(q.limit, "limit"),
+        offset: intQuery(q.offset, "offset"),
       }),
     );
   }),
