@@ -17,6 +17,11 @@ năng cốt lõi) → mục 14 (MVP và lộ trình) → mục 15–16 (câu h�
 
 ## Trạng thái
 
+- **Sẵn sàng công khai (xem `deploy.md` mục "Checklist trước khi mở"):** phiên admin 30 phút và thu hồi được, giới hạn
+  đăng nhập theo địa chỉ và theo tài khoản, giới hạn riêng cho các đường đắt, cấu hình production phải đủ mới chạy,
+  `/health` kiểm tra DB, tắt êm, log JSON có mã yêu cầu, header bảo mật ở web/admin/API, font tự lưu, trang giới thiệu/nguồn/báo lỗi/
+  riêng tư/điều khoản, giấy phép dữ liệu CC BY-SA 4.0, ảnh xem trước theo bản ghi, sitemap/robots chuẩn, tìm kiếm và dòng thời gian
+  có sự kiện, script sao lưu/khôi phục và `scripts/smoke.mjs`. Vận hành: `operations.md`.
 - **Giai đoạn:** app đã chạy được: web công khai, trang admin (nhân vật, chính thể, địa điểm,
   quan hệ, chức vụ, nguồn, kiểm tra dữ liệu) và API đều có logic thật trên Postgres.
   Admin có menu nhóm (Nội dung, Tư liệu, Hệ thống), tìm nhanh `Ctrl/⌘+K`, nút "+ Thêm" ở mọi trang;

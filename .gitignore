@@ -8,3 +8,6 @@ dist/
 !.env.example
 .DS_Store
 **/vite-env.d.ts
+
+# Content snapshots made by scripts/db-export.sh: kept out of git on purpose.
+/data/

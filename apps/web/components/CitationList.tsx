@@ -29,7 +29,7 @@ function Items({ items }: ItemsProps) {
       {items.map((c) => (
         <li key={c.id} className="surface p-4 text-sm">
           <div className="font-medium">
-            {c.source.url ? (
+            {c.source.url && /^https?:\/\//i.test(c.source.url) ? (
               <a href={c.source.url} target="_blank" rel="noreferrer">
                 {c.source.title}
               </a>
@@ -46,6 +46,9 @@ function Items({ items }: ItemsProps) {
             )}
           </div>
           {c.locator && <div className="text-muted-foreground">{c.locator}</div>}
+          {c.source.license && (
+            <div className="text-muted-foreground text-xs">Giấy phép: {c.source.license}</div>
+          )}
           {c.quote && (
             <blockquote className="text-muted-foreground mt-2 border-l-2 pl-3">
               {c.quote}

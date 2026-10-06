@@ -1,6 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { ZodError } from "zod";
 import { ServiceError } from "@lineagraph/core";
+import { errorFields, log } from "./logger.js";
 
 // Express 4 does not catch rejected promises, so every async handler goes through this.
 export const handle =
@@ -26,6 +27,23 @@ export const publicCache =
 export const param = (req: Request, name: string) => String(req.params[name]);
 
 /** Optional integer query value: absent -> undefined, anything that is not an integer -> 400. */
+/** A page offset: an integer, and not so large that it makes the database skip millions of rows. */
+export function offsetQuery(value: unknown): number | undefined {
+  const n = intQuery(value, "offset");
+  if (n !== undefined && (n < 0 || n > 100_000)) {
+    throw new ServiceError(400, "Tham số offset ngoài phạm vi cho phép");
+  }
+  return n;
+}
+
+/** A search text or other free-form parameter, with a ceiling on its length. */
+export function textQuery(value: unknown, name: string, max = 100): string | undefined {
+  if (typeof value !== "string" || value === "") return undefined;
+  if (value.length > max)
+    throw new ServiceError(400, `Tham số ${name} quá dài (tối đa ${max} ký tự)`);
+  return value;
+}
+
 /** A query parameter that is a plain string (the first one if repeated), or undefined. */
 export const strQuery = (value: unknown): string | undefined =>
   typeof value === "string" && value !== "" ? value : undefined;
@@ -40,7 +58,7 @@ export function intQuery(value: unknown, name: string): number | undefined {
   return n;
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   res.setHeader("Cache-Control", "no-store");
   if (err instanceof ServiceError) {
     res.status(err.status).json({ error: err.message });
@@ -58,8 +76,12 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     res.status(400).json({ error: "Nội dung gửi lên không phải JSON hợp lệ" });
     return;
   }
+  if ((err as { type?: string })?.type === "entity.too.large") {
+    res.status(413).json({ error: "Nội dung gửi lên quá lớn" });
+    return;
+  }
   // Postgres errors: 22P02 = malformed value (for example a non-UUID id), 23503 = foreign key
-  // violation, 23505 = unique violation. = foreign key violation, 23505 = unique violation.
+  // violation, 23505 = unique violation, 57014 = the statement ran past statement_timeout.
   const code =
     (err as { code?: string; cause?: { code?: string } })?.code ??
     (err as { cause?: { code?: string } })?.cause?.code;
@@ -77,6 +99,17 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     res.status(409).json({ error: "Dữ liệu này đã tồn tại" });
     return;
   }
-  console.error(err);
-  res.status(500).json({ error: "Lỗi máy chủ" });
+  if (code === "57014") {
+    log("error", "statement timeout", { reqId: res.locals.reqId, path: req.path });
+    res.status(503).json({ error: "Yêu cầu mất quá nhiều thời gian, vui lòng thử lại" });
+    return;
+  }
+  // The id lets a report ("lỗi lúc 10:42, mã ...") be traced to this exact stack in the logs.
+  log("error", "unhandled error", {
+    reqId: res.locals.reqId,
+    method: req.method,
+    path: req.path,
+    ...errorFields(err),
+  });
+  res.status(500).json({ error: "Lỗi máy chủ", requestId: res.locals.reqId });
 }

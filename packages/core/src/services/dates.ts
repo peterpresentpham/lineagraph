@@ -8,7 +8,7 @@ import type { DateInput } from "../validation";
 export const astronomicalYear = (year: number) => (year < 0 ? year + 1 : year);
 
 // Proleptic Gregorian date -> Julian Day Number (astronomical year).
-function gregorianJdn(year: number, month: number, day: number): number {
+export function gregorianJdn(year: number, month: number, day: number): number {
   const a = Math.floor((14 - month) / 12);
   const y = year + 4800 - a;
   const m = month + 12 * a - 3;
@@ -25,7 +25,7 @@ function gregorianJdn(year: number, month: number, day: number): number {
 
 // Julian calendar date -> Julian Day Number (astronomical year); used for dates before the
 // Gregorian reform that sources give in the calendar of their day.
-function julianJdn(year: number, month: number, day: number): number {
+export function julianJdn(year: number, month: number, day: number): number {
   const a = Math.floor((14 - month) / 12);
   const y = year + 4800 - a;
   const m = month + 12 * a - 3;
@@ -110,3 +110,23 @@ export function parseDate(edtf: string | null): DateView | null {
   if (approximate) label = `khoảng ${label}`;
   return { year, month, day, approximate, calendar, label };
 }
+
+/** Proleptic Gregorian year (numbered as in history books: no year 0) of a Julian Day Number. */
+export function yearOfJdn(jdn: number): number {
+  // Richards' algorithm, with the month worked out because the year depends on it.
+  const f = jdn + 1401 + Math.floor((Math.floor((4 * jdn + 274277) / 146097) * 3) / 4) - 38;
+  const e = 4 * f + 3;
+  const g = Math.floor((e % 1461) / 4);
+  const h = 5 * g + 2;
+  const month = ((Math.floor(h / 153) + 2) % 12) + 1;
+  const astronomical = Math.floor(e / 1461) - 4716 + Math.floor((12 + 2 - month) / 12);
+  return astronomical <= 0 ? astronomical - 1 : astronomical;
+}
+
+/** Century number of a year: 1 = years 1-100, -1 = years 100 BCE to 1 BCE (there is no century 0). */
+export const centuryOfYear = (year: number) =>
+  year > 0 ? Math.ceil(year / 100) : -Math.ceil(-year / 100);
+
+/** First and last year of a century (see {@link centuryOfYear}). */
+export const yearsOfCentury = (century: number): [number, number] =>
+  century > 0 ? [(century - 1) * 100 + 1, century * 100] : [century * 100, (century + 1) * 100 - 1];

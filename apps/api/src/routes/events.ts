@@ -9,7 +9,7 @@ import {
   restoreNode,
   updateEvent,
 } from "@lineagraph/core";
-import { flagQuery, handle, intQuery, param } from "../http.js";
+import { flagQuery, handle, intQuery, param, offsetQuery } from "../http.js";
 import { requireAdmin } from "../middleware/auth.js";
 
 // Events (battles, treaties, coronations...): public read, admin-only write.
@@ -26,7 +26,7 @@ eventsRouter.get(
         noSource: flagQuery(req.query.noSource),
         sort: req.query.sort === "name" ? "name" : "date",
         limit: intQuery(req.query.limit, "limit"),
-        offset: intQuery(req.query.offset, "offset"),
+        offset: offsetQuery(req.query.offset),
       }),
     );
   }),

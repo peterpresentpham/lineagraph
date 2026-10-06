@@ -20,10 +20,11 @@ type ListRow = {
   place_id: string | null;
   place_name: string | null;
   participant_count: number;
+  updated_at: Date | string;
 };
 
 const listSelect = sql`
-  select n.id, n.slug, en.name, e.event_type, tl.text as type_label,
+  select n.id, n.slug, en.name, e.event_type, tl.text as type_label, n.updated_at,
          sd.edtf as start_edtf, ed.edtf as end_edtf, e.place_id, pl.name as place_name,
          (select count(*)::int from history.event_participant ep where ep.event_id = e.id) as participant_count
   from kg.node n
@@ -45,6 +46,7 @@ const listItem = (r: ListRow) => ({
   end: parseDate(r.end_edtf),
   place: r.place_id && r.place_name ? { id: r.place_id, name: r.place_name } : null,
   participantCount: r.participant_count,
+  updatedAt: new Date(r.updated_at).toISOString(),
 });
 
 export async function listEvents(opts: {

@@ -6,15 +6,24 @@ import { Pagination } from "@/components/Pagination";
 import { PolityCard } from "@/components/PolityCard";
 import { Empty } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
+import { listMetadata } from "@/lib/seo";
 import type { PolitySummary } from "@/lib/types";
 
-export const metadata: Metadata = {
-  title: "Chính thể",
-  description: "Danh sách triều đại và chính quyền trong lịch sử thế giới, theo thứ tự thời gian.",
-};
 const PAGE_SIZE = 24;
 
 type Props = { searchParams: Promise<{ page?: string; type?: string }> };
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = await searchParams;
+  return listMetadata({
+    title: "Chính thể",
+    description:
+      "Danh sách triều đại và chính quyền trong lịch sử thế giới, theo thứ tự thời gian.",
+    path: "/polities",
+    page: Math.max(1, Number(params.page) || 1),
+    filtered: !!params.type,
+  });
+}
 
 export default async function PolitiesPage({ searchParams }: Props) {
   const params = await searchParams;
@@ -45,8 +54,8 @@ export default async function PolitiesPage({ searchParams }: Props) {
             aria-current={code === type ? "true" : undefined}
             className={
               code === type
-                ? "border-primary bg-accent text-foreground rounded-full border px-3 py-1 text-xs"
-                : "bg-card text-muted-foreground hover:text-foreground rounded-full border px-3 py-1 text-xs"
+                ? "border-primary bg-accent text-foreground inline-flex min-h-8 items-center rounded-full border px-3.5 text-sm"
+                : "bg-card text-muted-foreground hover:text-foreground inline-flex min-h-8 items-center rounded-full border px-3.5 text-sm"
             }
           >
             {label}

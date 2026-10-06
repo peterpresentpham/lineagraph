@@ -480,6 +480,25 @@ async function describeSubgraph(ids: Set<string>, opts: EgoGraphOptions, minImpo
 const clamp = (n: number | undefined, min: number, max: number, fallback: number) =>
   Math.min(Math.max(Number.isFinite(n) ? (n as number) : fallback, min), max);
 
+/** Fewest neighbours a first view should show before it falls back to a weaker importance level. */
+const EGO_MIN_FIRST_VIEW = 3;
+
+function egoWalk(
+  rootId: string,
+  depth: number,
+  limit: number,
+  minImportance: number,
+  options: EgoGraphOptions,
+) {
+  return egoBfs({
+    rootIds: [rootId],
+    depth,
+    limit: limit - 1,
+    minImportance,
+    fetchLinks: async (ids) => toEgoLinks(await fetchLinkRows(ids, options)),
+  });
+}
+
 /** The graph around one node: up to `depth` hops, at most `limit` nodes, closest and family first. */
 export async function getEgoGraph(
   slugOrId: string,
@@ -489,15 +508,19 @@ export async function getEgoGraph(
   const depth = clamp(options.depth, 1, 4, 2);
   const limit = clamp(options.limit, 5, 200, 40);
   // Every graph opens on the core links only (succession, founding); family and weaker links
-  // appear as the viewer loads more.
-  const minImportance = clamp(options.minImportance, 1, 5, 5);
-  const { added, truncated } = await egoBfs({
-    rootIds: [root.id],
-    depth,
-    limit: limit - 1,
-    minImportance,
-    fetchLinks: async (ids) => toEgoLinks(await fetchLinkRows(ids, options)),
-  });
+  // appear as the viewer loads more. When the caller does not pick a level and the core is nearly
+  // empty (data whose links were never graded), fall back to weaker levels so the first view is
+  // never a lone node.
+  const levels =
+    options.minImportance == null ? [5, 3, 1] : [clamp(options.minImportance, 1, 5, 5)];
+  let minImportance = levels[0]!;
+  let walk = await egoWalk(root.id, depth, limit, minImportance, options);
+  for (const level of levels.slice(1)) {
+    if (walk.added.length >= EGO_MIN_FIRST_VIEW) break;
+    minImportance = level;
+    walk = await egoWalk(root.id, depth, limit, minImportance, options);
+  }
+  const { added, truncated } = walk;
   const ids = new Set([root.id, ...added]);
   const [nodes, { edges, hidden }] = await Promise.all([
     graphNodes([...ids]),

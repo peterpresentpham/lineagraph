@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
 import { recordAudit } from "@lineagraph/core";
+import { errorFields, log } from "../logger.js";
 
 // URL prefix -> the table the change log names. Registries and relation types are keyed by code,
 // not by id, so they are not logged here.
@@ -16,6 +17,19 @@ const tables: Record<string, string> = {
 
 const action = { POST: "create", PUT: "update", DELETE: "delete" } as const;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Fields that must never reach the change log, however deep in the body they are.
+const SECRET_KEY = /password|token|secret|authorization/i;
+
+export function redact(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redact);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, SECRET_KEY.test(k) ? "[redacted]" : redact(v)]),
+    );
+  }
+  return value;
+}
 
 /**
  * Logs every successful admin write (who, what, which row) to kg.audit_log. It runs after the
@@ -47,8 +61,8 @@ export const auditWrites: RequestHandler = (req, res, next) => {
       rowId,
       action: kind,
       actor: admin.id,
-      after: kind === "delete" ? undefined : req.body,
-    }).catch((err) => console.error("audit log failed", err));
+      after: kind === "delete" ? undefined : redact(req.body),
+    }).catch((err) => log("error", "audit log failed", errorFields(err)));
   });
   next();
 };

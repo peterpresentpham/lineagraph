@@ -68,11 +68,15 @@ Có hai cách, chọn một:
 | Biến           | Giá trị                                                                              |
 | -------------- | ------------------------------------------------------------------------------------ |
 | `DATABASE_URL` | chuỗi kết nối Postgres (mục 1)                                                        |
-| `JWT_SECRET`   | chuỗi ngẫu nhiên từ 32 ký tự, ví dụ `openssl rand -hex 32`; thiếu hoặc ngắn là API không chạy |
+| `JWT_SECRET`   | chuỗi ngẫu nhiên từ 32 ký tự, ví dụ `openssl rand -hex 32` (không được là giá trị mẫu `change-me...`) |
 | `PORT`         | `4200` (đặt cố định để service khác tham chiếu được)                                  |
 | `TRUST_PROXY`  | `1` (Railway đứng trước API; cần cho giới hạn tần suất theo IP)                       |
-| `WEB_ORIGIN`   | địa chỉ công khai của `web`, ví dụ `https://suPha.up.railway.app`                      |
-| `ADMIN_ORIGIN` | địa chỉ công khai của `admin`                                                         |
+| `WEB_ORIGIN`   | địa chỉ công khai của `web`, ví dụ `https://suPha.up.railway.app`, **không có dấu `/` cuối** |
+| `ADMIN_ORIGIN` | địa chỉ công khai của `admin`, cũng không có dấu `/` cuối                             |
+| `DB_STATEMENT_TIMEOUT_MS` | tuỳ chọn: thời gian tối đa một truy vấn (mặc định `8000`; `0` để tắt; xem `operations.md` nếu dùng Neon `-pooler`) |
+
+API ở chế độ production **từ chối khởi động** (và in rõ lỗi) nếu thiếu `DATABASE_URL`, `TRUST_PROXY`,
+`WEB_ORIGIN`, `ADMIN_ORIGIN`, nếu `JWT_SECRET` ngắn hoặc là giá trị mẫu, hoặc nếu các địa chỉ trỏ vào `localhost`.
 
 **web**
 
@@ -80,7 +84,11 @@ Có hai cách, chọn một:
 | --------------------- | ------------------------------------------------------------------------------------ |
 | `API_URL`             | địa chỉ nội bộ: `http://${{api.RAILWAY_PRIVATE_DOMAIN}}:4200` (server của web gọi API) |
 | `NEXT_PUBLIC_API_URL` | địa chỉ công khai của `api` (trình duyệt gọi API, dùng cho sơ đồ). **Nhúng lúc build** |
-| `SITE_URL`            | địa chỉ công khai của `web` (cho sitemap, thẻ OG)                                      |
+| `SITE_URL`            | địa chỉ công khai của `web` (cho sitemap, thẻ OG). **Nhúng lúc build**                   |
+| `FEEDBACK_URL`        | tuỳ chọn: nơi nhận báo lỗi (xem mục "Kênh báo lỗi" bên dưới). Chưa đặt thì trang Báo lỗi không có nút gửi |
+
+`web` **từ chối build và khởi động** nếu `NEXT_PUBLIC_API_URL` hoặc `SITE_URL` thiếu hoặc trỏ vào `localhost`, và
+nếu `API_URL` thiếu khi chạy. Để chạy thử bản production ở máy, đặt `ALLOW_LOCALHOST=1`.
 
 **admin**
 
@@ -88,6 +96,8 @@ Có hai cách, chọn một:
 | -------------- | ---------------------------------------------------------- |
 | `VITE_API_URL` | địa chỉ công khai của `api`. **Nhúng lúc build**            |
 | `VITE_WEB_URL` | địa chỉ công khai của `web` (cho nút "Xem trên web")        |
+
+Build `admin` thất bại nếu `VITE_API_URL` thiếu hoặc trỏ vào `localhost`.
 
 > `NEXT_PUBLIC_API_URL`, `SITE_URL` (web) và `VITE_API_URL`, `VITE_WEB_URL` (admin) được nhúng vào mã khi
 > build. Railway chuyển biến thành build argument theo đúng tên, khớp với `ARG` trong Dockerfile. Đổi giá
@@ -99,7 +109,9 @@ Có hai cách, chọn một:
    `https://<api>/health`, phải thấy `{"ok":true}`.
 2. Có địa chỉ công khai của `api` rồi mới điền biến cho `web` và `admin`, sau đó deploy hai service này.
 3. Quay lại điền `WEB_ORIGIN`, `ADMIN_ORIGIN` cho `api` (CORS), để API nhận lời gọi từ admin.
-4. Nạp danh mục và tạo tài khoản admin (một lần), từ máy bạn với Railway CLI:
+4. Nạp dữ liệu và tạo tài khoản admin (một lần), từ máy bạn với Railway CLI. DB mới hoàn toàn:
+   chạy `db:seed` để có danh mục. Nếu có bản chụp nội dung từ trước (`scripts/db-export.sh`), **bỏ `db:seed`** và
+   nạp bằng `scripts/db-import.sh` (xem `operations.md`):
 
    ```
    npm i -g @railway/cli && railway login && railway link
@@ -110,7 +122,7 @@ Có hai cách, chọn một:
 
    `railway run` chạy lệnh trên máy bạn nhưng với biến môi trường của service, nên `DATABASE_URL` phải
    là địa chỉ **công khai** của DB (Neon thì sẵn có; Postgres của Railway dùng `DATABASE_PUBLIC_URL`).
-   Chạy lại `db:create-admin` để đổi mật khẩu. **Không dùng tài khoản test trong README ở production.**
+   Mật khẩu admin phải dài ít nhất 12 ký tự. Chạy lại `db:create-admin` để đổi mật khẩu (mọi phiên đang mở bị đăng xuất).
 5. Nếu DB có dữ liệu cũ từ trước ngày sửa quy ước năm TCN, chạy thêm một lần
    `railway run --service api pnpm db:recompute-dates`.
 
@@ -163,6 +175,31 @@ Bạn đang là chủ repo cá nhân nên có thể tự merge PR; luật trên 
 đang chạy, **không** hoàn tác migration đã chạy lên DB; vì vậy viết migration tương thích ngược (thêm cột,
 thêm bảng; xoá hoặc đổi tên cột thì làm hai bước qua hai lần deploy). Nếu migration trước-khi-chạy lỗi,
 bản mới không được bật và bản cũ vẫn chạy.
+
+## Kênh báo lỗi
+
+Người đọc báo sai sót qua trang `/bao-loi`, nút ở đó trỏ tới `FEEDBACK_URL`. Repo này để **riêng tư** nên người ngoài
+không mở được Issues của nó. Cách làm gọn nhất:
+
+1. Tạo một repo **công khai chỉ để nhận báo lỗi** (ví dụ `su-pha-bao-loi`, không chứa mã).
+2. Bật Issues và thêm mẫu issue `.github/ISSUE_TEMPLATE/bao-loi.yml` với các ô: địa chỉ trang, điều sai, điều đúng,
+   nguồn dẫn.
+3. Đặt `FEEDBACK_URL` của service `web` là `https://github.com/<bạn>/su-pha-bao-loi/issues/new/choose` rồi Redeploy.
+
+Cách khác: một địa chỉ email (`mailto:...`) hoặc biểu mẫu bên ngoài. Giá trị phải bắt đầu bằng `https://` hoặc `mailto:`.
+
+## Checklist trước khi mở cho công chúng
+
+- [ ] Đã áp migration lên DB production và nạp dữ liệu (`operations.md`, mục 3), **đã diễn tập khôi phục một lần**.
+- [ ] Tài khoản admin có mật khẩu dài (≥ 12 ký tự), **không** phải tài khoản test; `JWT_SECRET` ngẫu nhiên, không dùng lại ở nơi khác.
+- [ ] `node scripts/smoke.mjs --api … --web … --admin …` báo `All checks passed`.
+- [ ] Mở thử: trang chủ, một trang nhân vật, `/sitemap.xml`, `/robots.txt`, trang `/gioi-thieu`, `/nguon`.
+- [ ] `FEEDBACK_URL` đã đặt và nút Báo lỗi mở đúng nơi.
+- [ ] Đã bật sao lưu của nhà cung cấp DB và có bản chụp `db-export` đầu tiên cất ở nơi riêng.
+- [ ] Đã đọc lại `/quyen-rieng-tu` và `/dieu-khoan` và thấy đúng với thực tế (nếu thêm công cụ phân tích hay cookie thì phải cập nhật hai trang này trước).
+- [ ] Đã gửi `sitemap.xml` cho Google Search Console (và Bing Webmaster nếu muốn).
+- [ ] Với tên miền riêng: đã trỏ DNS, đặt lại `WEB_ORIGIN`, `ADMIN_ORIGIN`, `SITE_URL`, `NEXT_PUBLIC_API_URL`, `VITE_API_URL`
+      rồi Redeploy cả ba; cân nhắc Cloudflare phía trước (xem `operations.md`).
 
 ## Kiểm tra nhanh sau khi deploy
 

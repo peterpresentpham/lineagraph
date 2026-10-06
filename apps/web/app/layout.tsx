@@ -2,7 +2,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteSidebar } from "@/components/SiteSidebar";
 import { SITE_URL } from "@/lib/site";
-import { fontsHref, themeInitScript } from "@lineagraph/ui";
+import { themeInitScript } from "@lineagraph/ui";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
@@ -41,9 +41,6 @@ export default function RootLayout({ children }: Props) {
     <html lang="vi" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href={fontsHref} rel="stylesheet" />
       </head>
       <body>
         <a
@@ -52,7 +49,10 @@ export default function RootLayout({ children }: Props) {
         >
           Bỏ qua, tới nội dung chính
         </a>
-        <div className="bg-brand-gradient fixed inset-x-0 top-0 z-50 h-0.5" aria-hidden />
+        <div
+          className="bg-brand-gradient fixed inset-x-0 top-0 z-50 h-0.5 print:hidden"
+          aria-hidden
+        />
         <div className="flex min-h-screen flex-col md:flex-row">
           <SiteSidebar />
           <div className="flex min-w-0 flex-1 flex-col">

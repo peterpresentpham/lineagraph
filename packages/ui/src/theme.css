@@ -6,6 +6,7 @@
      theme/base.css      defaults    - typography, links, selection
      theme/utilities.css  composites  - surface, glass, eyebrow, text-gradient, bg-aurora ... */
 
+@import "./theme/fonts.css";
 @import "./theme/tokens.css";
 @import "./theme/semantic.css";
 @import "./theme/base.css";

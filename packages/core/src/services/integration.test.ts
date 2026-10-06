@@ -409,4 +409,108 @@ describe.skipIf(!url)("services against a real database", () => {
       expect(total).toBe(1);
     });
   });
+  describe("public reads", () => {
+    it("groups the timeline by century and lists events in it", async () => {
+      const tag = `Tl${Date.now()}`;
+      const ev = await core.createEvent(
+        core.eventInput.parse({
+          names: names(`${tag} Trận`),
+          eventType: "battle",
+          start: { year: -480 },
+        }),
+      );
+      const who = await person(`${tag} Người`, { birth: { year: 1428 } });
+      const index = await core.getTimelineIndex();
+      expect(index.find((i) => i.century === -5)?.count).toBeGreaterThanOrEqual(1);
+      expect(index.find((i) => i.century === 15)?.count).toBeGreaterThanOrEqual(1);
+      // Earliest first, BCE before CE.
+      expect(index.map((i) => i.century)).toEqual(
+        [...index.map((i) => i.century)].sort((a, b) => a - b),
+      );
+
+      const bce = await core.getTimeline({ century: -5 });
+      expect(bce.some((e) => e.kind === "event" && e.slug === ev.slug)).toBe(true);
+      expect(bce.some((e) => e.slug === who.slug)).toBe(false);
+      const ce = await core.getTimeline({ century: 15 });
+      expect(ce.some((e) => e.kind === "person" && e.slug === who.slug)).toBe(true);
+      // Without a century it still returns at most `limit` entries.
+      expect((await core.getTimeline({ limit: 1 })).length).toBe(1);
+      await core.deleteEvent(ev.id);
+    });
+
+    it("narrows a search to the kinds asked for", async () => {
+      const tag = `Kd${Date.now()}`;
+      const ev = await core.createEvent(
+        core.eventInput.parse({ names: names(`${tag} Hiệp ước`), eventType: "treaty" }),
+      );
+      const p = await person(`${tag} Người`);
+      const all = await core.search(tag);
+      expect(all.map((r) => r.kind).sort()).toEqual(["event", "person"]);
+      const onlyPeople = await core.search(tag, core.parseSearchKinds(["person", "polity"]));
+      expect(onlyPeople.map((r) => r.slug)).toEqual([p.slug]);
+      // Unknown kinds are dropped rather than reaching the query.
+      expect(core.parseSearchKinds(["x'; drop table"])).toEqual(["person", "polity", "event"]);
+      await core.deleteEvent(ev.id);
+    });
+
+    it("lists a source in the bibliography only while it backs a live record, without notes", async () => {
+      const tag = `Bib${Date.now()}`;
+      const src = await core.createSource(
+        core.sourceInput.parse({ title: `${tag} Sử`, license: "CC BY-SA 4.0", note: "nội bộ" }),
+      );
+      const unused = await core.listBibliography({ limit: 200 });
+      expect(unused.items.some((s) => s.id === src.id)).toBe(false);
+
+      const p = await person(`${tag} Người`);
+      await core.createCitation(
+        core.citationInput.parse({ subjectTable: "person", subjectId: p.id, sourceId: src.id }),
+      );
+      const used = await core.listBibliography({ limit: 200 });
+      const entry = used.items.find((s) => s.id === src.id)!;
+      expect(entry.citations).toBe(1);
+      expect(entry.license).toBe("CC BY-SA 4.0");
+      expect(JSON.stringify(entry)).not.toContain("nội bộ");
+
+      await core.deletePerson(p.id);
+      const afterDelete = await core.listBibliography({ limit: 200 });
+      expect(afterDelete.items.some((s) => s.id === src.id)).toBe(false);
+      expect((await core.listCitations("person", p.id))[0]?.source.license).toBe("CC BY-SA 4.0");
+    });
+  });
+  it("opens an ego graph on weaker links when the core links leave it nearly empty", async () => {
+    const tag = `Ego${Date.now()}`;
+    const root = await person(`${tag} Gốc`);
+    for (let i = 0; i < 4; i++) {
+      const child = await person(`${tag} Con ${i}`);
+      const rel = await core.createRelationship(
+        core.relationshipInput.parse({
+          type: "parent_of",
+          fromId: root.id,
+          toId: child.id,
+          importance: 3,
+        }),
+      );
+      created.relations.push(rel.id);
+    }
+    const auto = await core.getEgoGraph(root.id);
+    expect(auto.nodes.length).toBe(5);
+    expect(auto.minImportance).toBeLessThan(5);
+    // A caller that asks for the core only gets exactly that.
+    const core5 = await core.getEgoGraph(root.id, { minImportance: 5 });
+    expect(core5.nodes.length).toBe(1);
+    expect(core5.minImportance).toBe(5);
+  });
+
+  it("offers near matches for a typo, and lists entries dated to a year", async () => {
+    const tag = `Zqv${Date.now()}`.toLowerCase();
+    await person(`${tag} Trinhsam`, { birth: { year: 1111 } });
+    expect(await core.search(`${tag} Trinhsm`)).toHaveLength(0);
+    const near = await core.searchSimilar(`${tag} Trinhsm`);
+    expect(near.map((r) => r.name)).toContain(`${tag} Trinhsam`);
+    const inYear = await core.getTimeline({ year: 1111 });
+    expect(inYear.some((e) => e.name === `${tag} Trinhsam`)).toBe(true);
+    expect((await core.getTimeline({ year: 1112 })).some((e) => e.name.startsWith(tag))).toBe(
+      false,
+    );
+  });
 });

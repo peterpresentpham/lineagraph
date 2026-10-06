@@ -319,6 +319,8 @@ export const sourceInput = z.object({
     "Đường dẫn phải bắt đầu bằng http:// hoặc https://",
   ),
   reliability: z.number().int().min(1).max(5).nullish(),
+  // How the source may be reused, shown with every citation of it ("CC BY-SA 4.0", "Phạm vi công cộng").
+  license: optionalText(100),
   note: optionalText(),
 });
 export type SourceInput = z.infer<typeof sourceInput>;

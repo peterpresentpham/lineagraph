@@ -5,10 +5,15 @@ import { CitationList } from "@/components/CitationList";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
-import { JsonLd, isoDate } from "@/components/JsonLd";
+import { JsonLd } from "@/components/JsonLd";
+import { breadcrumbData, isoDate } from "@/lib/structuredData";
 import { PageHeader } from "@/components/PageHeader";
+import { CiteButton } from "@/components/CiteButton";
+import { ReportLink } from "@/components/ReportLink";
 import { Empty, Section } from "@/components/Section";
+import { SITE_URL } from "@/lib/site";
 import { apiGet, getLabels } from "@/lib/api";
+import { recordOpenGraph } from "@/lib/seo";
 import type { Citation, EventSummary, PolityDetail } from "@/lib/types";
 import { EventCard } from "@/components/EventCard";
 
@@ -21,7 +26,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: polity.name,
     description,
     alternates: { canonical: `/polity/${polity.slug}` },
-    openGraph: { title: polity.name, description, type: "website" },
+    openGraph: {
+      ...recordOpenGraph({ title: polity.name, description, path: `/polity/${polity.slug}` }),
+      type: "website",
+    },
     twitter: { title: polity.name, description },
   };
 }
@@ -50,6 +58,12 @@ export default async function PolityPage({ params }: Props) {
           foundingDate: isoDate(polity.started) ?? undefined,
           dissolutionDate: isoDate(polity.ended) ?? undefined,
         }}
+      />
+      <JsonLd
+        data={breadcrumbData(SITE_URL, [
+          { name: "Chính thể", path: "/polities" },
+          { name: polity.name, path: `/polity/${polity.slug}` },
+        ])}
       />
       <PageHeader
         hero
@@ -156,6 +170,11 @@ export default async function PolityPage({ params }: Props) {
           <CitationList citations={citations} />
         </Section>
       )}
+
+      <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-4 print:hidden">
+        <CiteButton title={polity.name} url={`${SITE_URL}/polity/${polity.slug}`} />
+        <ReportLink path={`/polity/${polity.slug}`} />
+      </div>
     </>
   );
 }

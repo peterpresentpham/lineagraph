@@ -4,16 +4,21 @@ import { Badge } from "@lineagraph/ui";
 import { CitationList } from "@/components/CitationList";
 import { EventCard } from "@/components/EventCard";
 import { FamilySection } from "@/components/FamilySection";
-import { JsonLd, isoDate } from "@/components/JsonLd";
+import { JsonLd } from "@/components/JsonLd";
+import { breadcrumbData, isoDate } from "@/lib/structuredData";
 import { LifeTimeline, type TimelineItem } from "@/components/LifeTimeline";
 import { Monogram } from "@/components/Monogram";
 import { PageHeader } from "@/components/PageHeader";
+import { CiteButton } from "@/components/CiteButton";
+import { ReportLink } from "@/components/ReportLink";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { PersonCard } from "@/components/PersonCard";
 import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
 import { Empty, Section } from "@/components/Section";
+import { SITE_URL } from "@/lib/site";
 import { apiGet, getLabels } from "@/lib/api";
+import { recordOpenGraph } from "@/lib/seo";
 import { dateKey, historicityLabels, lifeSpan, sexLabels } from "@/lib/labels";
 import type { Citation, EventSummary, PersonDetail } from "@/lib/types";
 
@@ -26,7 +31,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: person.name,
     description,
     alternates: { canonical: `/person/${person.slug}` },
-    openGraph: { title: person.name, description, type: "profile" },
+    openGraph: {
+      ...recordOpenGraph({ title: person.name, description, path: `/person/${person.slug}` }),
+      type: "profile",
+    },
     twitter: { title: person.name, description },
   };
 }
@@ -82,6 +90,12 @@ export default async function PersonPage({ params }: Props) {
           birthDate: isoDate(person.birth) ?? undefined,
           deathDate: isoDate(person.death) ?? undefined,
         }}
+      />
+      <JsonLd
+        data={breadcrumbData(SITE_URL, [
+          { name: "Nhân vật", path: "/persons" },
+          { name: person.name, path: `/person/${person.slug}` },
+        ])}
       />
       <PageHeader
         hero
@@ -220,6 +234,11 @@ export default async function PersonPage({ params }: Props) {
           <CitationList citations={citations} />
         </Section>
       )}
+
+      <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-4 print:hidden">
+        <CiteButton title={person.name} url={`${SITE_URL}/person/${person.slug}`} />
+        <ReportLink path={`/person/${person.slug}`} />
+      </div>
     </>
   );
 }

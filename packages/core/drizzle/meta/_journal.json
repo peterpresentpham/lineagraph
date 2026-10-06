@@ -64,6 +64,13 @@
       "when": 1791254753159,
       "tag": "0008_events_and_confidence",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791270333586,
+      "tag": "0009_admin_token_version",
+      "breakpoints": true
     }
   ]
 }

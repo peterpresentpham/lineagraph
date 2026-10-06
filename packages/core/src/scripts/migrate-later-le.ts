@@ -47,6 +47,8 @@ async function ensureSource(title: string, author: string | null, kind: string) 
     kind,
     url: null,
     reliability: 4,
+    // Unknown until an editor records it in the admin; a wrong licence would be worse than none.
+    license: null,
     note: null,
   });
   return row.id;

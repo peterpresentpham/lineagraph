@@ -1,18 +1,22 @@
 import type { NextFunction, Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
-import { adminExists } from "@lineagraph/core";
+import { getAdminSession } from "@lineagraph/core";
 
 const secretValue = process.env.JWT_SECRET;
 if (!secretValue) throw new Error("JWT_SECRET is not set");
 if (secretValue.length < 32) throw new Error("JWT_SECRET must be at least 32 characters");
 const secret = new TextEncoder().encode(secretValue);
 
-export async function signAdminToken(adminId: string, email: string) {
-  return new SignJWT({ email })
+/** A token is good for this long; the admin app renews it while someone is working. */
+export const TOKEN_TTL_SECONDS = 30 * 60;
+
+/** `version` is the account's token version; raising it in the database revokes this token. */
+export async function signAdminToken(adminId: string, email: string, version: number) {
+  return new SignJWT({ email, ver: version })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(adminId)
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
     .sign(secret);
 }
 
@@ -28,7 +32,11 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   }
   try {
     const { payload } = await jwtVerify(token, secret, { algorithms: ["HS256"] });
-    if (!payload.sub || !(await adminExists(payload.sub))) throw new Error("admin removed");
+    const session = payload.sub ? await getAdminSession(payload.sub) : null;
+    // The account must still exist and the token must carry its current version.
+    if (!payload.sub || !session || payload.ver !== session.tokenVersion) {
+      throw new Error("session ended");
+    }
     res.locals.admin = { id: payload.sub, email: payload.email };
     next();
   } catch {

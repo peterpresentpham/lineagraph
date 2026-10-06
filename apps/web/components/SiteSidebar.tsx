@@ -46,7 +46,7 @@ export function SiteSidebar() {
   return (
     <aside
       className={cn(
-        "bg-card/70 sticky top-0 hidden h-screen shrink-0 flex-col border-r p-3 transition-[width] duration-200 md:flex",
+        "bg-card/70 sticky top-0 hidden h-screen shrink-0 flex-col border-r p-3 transition-[width] duration-200 md:flex print:hidden",
         collapsed ? "w-sidebar-collapsed" : "w-sidebar",
       )}
     >

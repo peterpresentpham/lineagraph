@@ -18,10 +18,12 @@ type ListRow = {
   polity_type: string;
   start_edtf: string | null;
   end_edtf: string | null;
+  updated_at: Date | string;
 };
 
 const listSelect = sql`
-  select n.id, n.slug, pn.name, p.polity_type, sd.edtf as start_edtf, ed.edtf as end_edtf
+  select n.id, n.slug, pn.name, p.polity_type, sd.edtf as start_edtf, ed.edtf as end_edtf,
+         n.updated_at
   from kg.node n
   join history.polity p on p.id = n.id
   join kg.name pn on pn.node_id = n.id and pn.is_primary
@@ -36,6 +38,7 @@ const listItem = (r: ListRow) => ({
   polityType: r.polity_type,
   started: parseDate(r.start_edtf),
   ended: parseDate(r.end_edtf),
+  updatedAt: new Date(r.updated_at).toISOString(),
 });
 
 export async function listPolities(opts: {
@@ -43,7 +46,7 @@ export async function listPolities(opts: {
   type?: string;
   /** Only polities that have no source at all. */
   noSource?: boolean;
-  sort?: "date" | "name";
+  sort?: "date" | "name" | "notable";
   limit?: number;
   offset?: number;
 }) {
@@ -56,7 +59,11 @@ export async function listPolities(opts: {
       : sql``
   } ${opts.type ? sql`and p.polity_type = ${opts.type}` : sql``} ${opts.noSource ? withoutSource : sql``}`;
   const order =
-    opts.sort === "name" ? sql`pn.name_normalized` : sql`sd.earliest_jdn nulls last, pn.name`;
+    opts.sort === "name"
+      ? sql`pn.name_normalized`
+      : opts.sort === "notable"
+        ? sql`(select count(*) from history.tenure t where t.polity_id = n.id) desc, pn.name`
+        : sql`sd.earliest_jdn nulls last, pn.name`;
   const [rows, [{ count }]] = await Promise.all([
     db.execute<ListRow>(
       sql`${listSelect} ${filter} order by ${order} limit ${limit} offset ${offset}`,

@@ -18,6 +18,8 @@ export type PersonSummary = {
   historicity: string;
   birth: ReturnType<typeof parseDate>;
   death: ReturnType<typeof parseDate>;
+  /** When the record last changed (ISO), for the sitemap. */
+  updatedAt: string;
 };
 
 type SummaryRow = {
@@ -28,6 +30,7 @@ type SummaryRow = {
   historicity: string;
   birth_edtf: string | null;
   death_edtf: string | null;
+  updated_at: Date | string;
 };
 
 const summaryFrom = (r: SummaryRow): PersonSummary => ({
@@ -38,12 +41,13 @@ const summaryFrom = (r: SummaryRow): PersonSummary => ({
   historicity: r.historicity,
   birth: parseDate(r.birth_edtf),
   death: parseDate(r.death_edtf),
+  updatedAt: new Date(r.updated_at).toISOString(),
 });
 
 // Base query for person lists: one row per person with primary name and preferred dates.
 const summarySelect = sql`
   select n.id, n.slug, pn.name, p.sex, p.historicity,
-         bd.edtf as birth_edtf, dd.edtf as death_edtf
+         bd.edtf as birth_edtf, dd.edtf as death_edtf, n.updated_at
   from kg.node n
   join history.person p on p.id = n.id
   join kg.name pn on pn.node_id = n.id and pn.is_primary
@@ -59,7 +63,7 @@ export async function listPersons(opts: {
   historicity?: string;
   /** Only people that have no source at all. */
   noSource?: boolean;
-  sort?: "name" | "birth";
+  sort?: "name" | "birth" | "notable";
   limit?: number;
   offset?: number;
 }) {
@@ -73,10 +77,19 @@ export async function listPersons(opts: {
   } ${opts.sex ? sql`and p.sex = ${opts.sex}` : sql``} ${
     opts.historicity ? sql`and p.historicity = ${opts.historicity}` : sql``
   } ${opts.noSource ? withoutSource : sql``}`;
+  // "Notable" favours people who held office or are well connected and cited, so a home page
+  // does not open on whoever sorts first alphabetically.
+  const notability = sql`(
+    (select count(*) from kg.relation r where r.from_id = n.id or r.to_id = n.id)
+    + 3 * (select count(*) from history.tenure t where t.person_id = n.id)
+    + 2 * (select count(*) from kg.citation c where c.subject_id = n.id)
+  ) desc, pn.name_normalized`;
   const order =
     opts.sort === "birth"
       ? sql`bd.earliest_jdn nulls last, pn.name_normalized`
-      : sql`pn.name_normalized`;
+      : opts.sort === "notable"
+        ? notability
+        : sql`pn.name_normalized`;
   const [rows, [{ count }]] = await Promise.all([
     db.execute<SummaryRow>(
       sql`${summarySelect} ${filter} order by ${order} limit ${limit} offset ${offset}`,

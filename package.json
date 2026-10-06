@@ -15,11 +15,12 @@
     "db:create-admin": "pnpm --filter @lineagraph/core db:create-admin",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter @lineagraph/core test",
+    "test": "pnpm -r --if-present test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:contrast": "node scripts/check-contrast.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
@@ -35,5 +36,8 @@
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "typescript-eslint": "^8.34.1"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

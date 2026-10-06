@@ -8,9 +8,10 @@ import {
   getPolityGraph,
   listPersons,
   listPolities,
+  ServiceError,
 } from "@lineagraph/core";
 import { z } from "zod";
-import { flagQuery, handle, intQuery, param, strQuery } from "../http.js";
+import { flagQuery, handle, intQuery, param, strQuery, offsetQuery } from "../http.js";
 
 // Public read routes for the web app — no login.
 export const graphRouter = Router();
@@ -24,9 +25,10 @@ graphRouter.get(
         sex: strQuery(req.query.sex),
         historicity: strQuery(req.query.historicity),
         noSource: flagQuery(req.query.noSource),
-        sort: req.query.sort === "birth" ? "birth" : "name",
+        sort:
+          req.query.sort === "birth" ? "birth" : req.query.sort === "notable" ? "notable" : "name",
         limit: intQuery(req.query.limit, "limit"),
-        offset: Math.max(intQuery(req.query.offset, "offset") ?? 0, 0),
+        offset: offsetQuery(req.query.offset) ?? 0,
       }),
     );
   }),
@@ -56,9 +58,10 @@ graphRouter.get(
         q: typeof req.query.q === "string" ? req.query.q : undefined,
         type: typeof req.query.type === "string" ? req.query.type : undefined,
         noSource: flagQuery(req.query.noSource),
-        sort: req.query.sort === "name" ? "name" : "date",
+        sort:
+          req.query.sort === "name" ? "name" : req.query.sort === "notable" ? "notable" : "date",
         limit: intQuery(req.query.limit, "limit"),
-        offset: intQuery(req.query.offset, "offset"),
+        offset: offsetQuery(req.query.offset),
       }),
     );
   }),
@@ -69,7 +72,12 @@ graphRouter.get(
   handle(async (req, res) => res.json(await getPolity(param(req, "slug")))),
 );
 
-const csv = (v: unknown) => (typeof v === "string" && v ? v.split(",").filter(Boolean) : undefined);
+// A comma-separated list from the query string, with a ceiling on how many entries it may hold.
+const csv = (v: unknown) => {
+  const items = typeof v === "string" && v ? v.split(",").filter(Boolean) : undefined;
+  if (items && items.length > 20) throw new ServiceError(400, "Quá nhiều giá trị trong danh sách");
+  return items;
+};
 
 // Graph around one person or polity, for the browser to draw (React Flow). Capped at `limit`
 // nodes; nodes with neighbours that were cut off are listed in `hidden`.
@@ -97,7 +105,7 @@ graphRouter.post(
         nodeId: z.string().uuid(),
         known: z.array(z.string().uuid()).max(1000),
         limit: z.number().int().min(1).max(100).optional(),
-        types: z.array(z.string()).optional(),
+        types: z.array(z.string().max(50)).max(20).optional(),
         includeDisputed: z.boolean().optional(),
         minImportance: z.number().int().min(1).max(5).optional(),
       })

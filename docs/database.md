@@ -2,6 +2,8 @@
 
 > Địa điểm: bảng `history.place` (phân cấp qua `parent_id`, toạ độ tuỳ chọn); nhân vật trỏ tới nó bằng `birth_place_id` và `death_place_id`. Sự kiện là một `kg.node` loại `event` kèm bảng `history.event` và `history.event_participant` (xem mục 2.1).
 
+`auth.admin.token_version` tăng lên khi đăng xuất hoặc đổi mật khẩu; token chứa phiên bản lúc cấp và chỉ hợp lệ khi bằng giá trị hiện tại. `kg.source.license` ghi giấy phép sử dụng của nguồn và hiện công khai cùng trích dẫn.
+
 Nguồn sự thật là các file schema Drizzle trong `packages/core/src/schema/` (`kg.ts`, `history.ts`, `learning.ts`, `auth.ts`). File này chỉ là bản vẽ để đọc nhanh; khi đổi schema, hãy cập nhật lại cho khớp.
 
 Postgres chia làm bốn schema:

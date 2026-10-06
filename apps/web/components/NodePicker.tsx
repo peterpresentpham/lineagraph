@@ -42,9 +42,12 @@ export function NodePicker({ name, label, initial, onSelect }: Props) {
     request.current = controller;
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`${PUBLIC_API_URL}/search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `${PUBLIC_API_URL}/search?q=${encodeURIComponent(q)}&kinds=person,polity`,
+          {
+            signal: controller.signal,
+          },
+        );
         if (!res.ok) throw new Error(String(res.status));
         setResults((await res.json()) as SearchResult[]);
         setActive(-1);

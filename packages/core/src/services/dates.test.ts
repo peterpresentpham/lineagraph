@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { personInput } from "../validation";
-import { parseDate, toRow } from "./dates";
+import {
+  astronomicalYear,
+  centuryOfYear,
+  gregorianJdn,
+  parseDate,
+  toRow,
+  yearOfJdn,
+  yearsOfCentury,
+} from "./dates";
 
 const day = (year: number, month: number, d: number, calendar?: "gregorian" | "julian") =>
   toRow({ year, month, day: d, approximate: false, calendar }).earliestJdn;
@@ -77,5 +85,38 @@ describe("date validation by calendar", () => {
     expect(born({ year: -9999 }).success).toBe(true);
     expect(born({ year: 9999 }).success).toBe(true);
     expect(born({ year: 10000 }).success).toBe(false);
+  });
+});
+
+describe("centuries", () => {
+  it("numbers centuries the way history books do, with none at 0", () => {
+    expect(centuryOfYear(1)).toBe(1);
+    expect(centuryOfYear(100)).toBe(1);
+    expect(centuryOfYear(101)).toBe(2);
+    expect(centuryOfYear(1428)).toBe(15);
+    expect(centuryOfYear(-1)).toBe(-1); // 1 BCE
+    expect(centuryOfYear(-100)).toBe(-1);
+    expect(centuryOfYear(-101)).toBe(-2);
+    expect(centuryOfYear(-44)).toBe(-1); // Caesar
+  });
+
+  it("gives the years a century covers, and they map back to it", () => {
+    expect(yearsOfCentury(15)).toEqual([1401, 1500]);
+    expect(yearsOfCentury(1)).toEqual([1, 100]);
+    expect(yearsOfCentury(-1)).toEqual([-100, -1]);
+    expect(yearsOfCentury(-5)).toEqual([-500, -401]);
+    for (const c of [-12, -5, -1, 1, 2, 15, 21]) {
+      const [from, to] = yearsOfCentury(c);
+      expect(centuryOfYear(from)).toBe(c);
+      expect(centuryOfYear(to)).toBe(c);
+    }
+  });
+
+  it("recovers the year from a day number, BCE included", () => {
+    for (const year of [-3000, -500, -44, -1, 1, 476, 1428, 1789, 2000]) {
+      expect(yearOfJdn(gregorianJdn(astronomicalYear(year), 6, 15))).toBe(year);
+      expect(yearOfJdn(gregorianJdn(astronomicalYear(year), 1, 1))).toBe(year);
+      expect(yearOfJdn(gregorianJdn(astronomicalYear(year), 12, 31))).toBe(year);
+    }
   });
 });

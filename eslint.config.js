@@ -93,4 +93,16 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
     rules: { "no-console": "off" },
   },
+  {
+    // Repo scripts run by hand or in CI (Node, ES modules): console output is their interface.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: { globals: globals.node },
+    rules: { "no-console": "off" },
+  },
+  {
+    // Plain browser scripts copied as they are into the admin build (not bundled, not TypeScript).
+    files: ["apps/admin/public/**/*.js"],
+    languageOptions: { globals: globals.browser, sourceType: "script" },
+    rules: { "no-empty": "off", "@typescript-eslint/no-unused-vars": "off" },
+  },
 );

@@ -3,10 +3,15 @@ import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
 import { CitationList } from "@/components/CitationList";
 import { EventCard } from "@/components/EventCard";
-import { JsonLd, isoDate } from "@/components/JsonLd";
+import { JsonLd } from "@/components/JsonLd";
+import { breadcrumbData, isoDate } from "@/lib/structuredData";
 import { PageHeader } from "@/components/PageHeader";
+import { CiteButton } from "@/components/CiteButton";
+import { ReportLink } from "@/components/ReportLink";
 import { Section } from "@/components/Section";
+import { SITE_URL } from "@/lib/site";
 import { apiGet } from "@/lib/api";
+import { recordOpenGraph } from "@/lib/seo";
 import type { Citation, EventDetail } from "@/lib/types";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -19,7 +24,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: event.name,
     description,
     alternates: { canonical: `/event/${event.slug}` },
-    openGraph: { title: event.name, description },
+    openGraph: {
+      ...recordOpenGraph({ title: event.name, description, path: `/event/${event.slug}` }),
+      type: "website",
+    },
     twitter: { title: event.name, description },
   };
 }
@@ -53,6 +61,12 @@ export default async function EventPage({ params }: Props) {
           location: event.place ? { "@type": "Place", name: event.place.name } : undefined,
         }}
       />
+      <JsonLd
+        data={breadcrumbData(SITE_URL, [
+          { name: "Sự kiện", path: "/events" },
+          { name: event.name, path: `/event/${event.slug}` },
+        ])}
+      />
       <PageHeader
         hero
         eyebrow={event.eventTypeLabel}
@@ -82,7 +96,7 @@ export default async function EventPage({ params }: Props) {
       )}
 
       {event.participants.length > 0 && (
-        <Section title={hasSides ? "Các bên tham gia" : "Người tham gia"}>
+        <Section title={hasSides ? "Các phe tham gia" : "Người tham gia"}>
           <div
             className={
               hasSides && orderedSides.length > 1 ? "grid gap-5 sm:grid-cols-2" : "grid gap-5"
@@ -92,7 +106,7 @@ export default async function EventPage({ params }: Props) {
               <div key={side ?? "none"}>
                 {hasSides && (
                   <h3 className="eyebrow !text-muted-foreground mb-3">
-                    {side === null ? "Khác" : `Bên ${side}`}
+                    {side === null ? "Khác" : `Phe ${side}`}
                   </h3>
                 )}
                 <ul className="flex flex-col gap-2">
@@ -138,6 +152,11 @@ export default async function EventPage({ params }: Props) {
           <CitationList citations={citations} />
         </Section>
       )}
+
+      <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-4 print:hidden">
+        <CiteButton title={event.name} url={`${SITE_URL}/event/${event.slug}`} />
+        <ReportLink path={`/event/${event.slug}`} />
+      </div>
     </>
   );
 }

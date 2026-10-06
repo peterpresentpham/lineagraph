@@ -11,9 +11,15 @@ export const TYPES_CACHE_KEY = "relation-types";
 /** Cache key of the whole relationship graph (relations, tenures, people) used by path search. */
 export const GRAPH_CACHE_KEY = "graph-data";
 
-/** Call after any write that can change the graph; the next path search reloads it. */
+/** Cache key of the per-century entry counts of the timeline. */
+export const TIMELINE_CACHE_KEY = "timeline-index";
+
+/**
+ * Call after any write to people, polities, events or their links: the next path search reloads
+ * the graph and the next timeline visit recounts the centuries.
+ */
 export function invalidateGraphCache() {
-  invalidate(GRAPH_CACHE_KEY);
+  invalidate(GRAPH_CACHE_KEY, TIMELINE_CACHE_KEY);
 }
 
 /** Drops cached entries so the next read reloads them; call after writing the data they hold. */

@@ -28,6 +28,7 @@ type Source = {
   author: string | null;
   kind: string | null;
   url: string | null;
+  license: string | null;
   reliability: number | null;
   note: string | null;
 };
@@ -36,6 +37,7 @@ type Form = {
   author: string;
   kind: string;
   url: string;
+  license: string;
   reliability: string;
   note: string;
 };
@@ -44,6 +46,7 @@ const emptyForm = (): Form => ({
   author: "",
   kind: "",
   url: "",
+  license: "",
   reliability: "",
   note: "",
 });
@@ -119,6 +122,7 @@ export function Sources() {
       author: s.author ?? "",
       kind: s.kind ?? "",
       url: s.url ?? "",
+      license: s.license ?? "",
       reliability: s.reliability?.toString() ?? "",
       note: s.note ?? "",
     };
@@ -231,7 +235,16 @@ export function Sources() {
             onChange={(e) => setForm({ ...form, url: e.target.value })}
           />
         </Field>
-        <Field label="Ghi chú">
+        <Field
+          label="Giấy phép sử dụng"
+          hint='Cách nguồn này được phép dùng lại, hiện công khai cùng trích dẫn. Ví dụ: "CC BY-SA 4.0", "Phạm vi công cộng". Để trống nếu chưa rõ.'
+        >
+          <Input
+            value={form.license}
+            onChange={(e) => setForm({ ...form, license: e.target.value })}
+          />
+        </Field>
+        <Field label="Ghi chú nội bộ" hint="Chỉ admin thấy, không hiện ra trang công khai.">
           <Textarea
             rows={4}
             value={form.note}

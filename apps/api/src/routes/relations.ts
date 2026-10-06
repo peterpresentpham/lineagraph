@@ -14,7 +14,7 @@ import {
   updateRelationship,
 } from "@lineagraph/core";
 import { z } from "zod";
-import { handle, intQuery, param } from "../http.js";
+import { handle, intQuery, param, textQuery } from "../http.js";
 import { requireAdmin } from "../middleware/auth.js";
 
 // Relationships between people and polities.
@@ -26,8 +26,9 @@ export const relationsRouter = Router();
 relationsRouter.get(
   "/relations",
   handle(async (req, res) => {
-    const { a, b } = req.query;
-    if (typeof a !== "string" || typeof b !== "string" || !a || !b) {
+    const a = textQuery(req.query.a, "a");
+    const b = textQuery(req.query.b, "b");
+    if (!a || !b) {
       res.status(400).json({ error: "Cần chọn hai đối tượng (a và b)" });
       return;
     }

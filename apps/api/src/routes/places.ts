@@ -7,7 +7,7 @@ import {
   placeInput,
   updatePlace,
 } from "@lineagraph/core";
-import { handle, intQuery, param } from "../http.js";
+import { handle, intQuery, param, offsetQuery } from "../http.js";
 import { requireAdmin } from "../middleware/auth.js";
 
 // Places (where people were born or died): public read, admin-only write.
@@ -20,7 +20,7 @@ placesRouter.get(
       await listPlaces({
         q: typeof req.query.q === "string" ? req.query.q : undefined,
         limit: intQuery(req.query.limit, "limit"),
-        offset: intQuery(req.query.offset, "offset"),
+        offset: offsetQuery(req.query.offset),
       }),
     );
   }),

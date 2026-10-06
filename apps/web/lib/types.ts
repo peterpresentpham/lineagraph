@@ -149,19 +149,25 @@ export type Citation = {
   quote: string | null;
   confidence: number;
   stance: "supports" | "disputes" | "mentions";
-  source: { id: string; title: string; author: string | null; url: string | null };
+  source: {
+    id: string;
+    title: string;
+    author: string | null;
+    url: string | null;
+    license: string | null;
+  };
 };
 
 export type SearchResult = {
   id: string;
-  kind: "person" | "polity";
+  kind: "person" | "polity" | "event";
   slug: string;
   name: string;
   matched: string;
 };
 
 export type TimelineEntry = {
-  kind: "person" | "polity";
+  kind: "person" | "polity" | "event";
   slug: string;
   name: string;
   start: DateValue | null;
@@ -196,4 +202,15 @@ export type EventDetail = EventSummary & {
   }[];
   parent: EventSummary | null;
   children: EventSummary[];
+};
+
+export type BibliographyEntry = {
+  id: string;
+  title: string;
+  author: string | null;
+  kind: string | null;
+  url: string | null;
+  license: string | null;
+  reliability: number | null;
+  citations: number;
 };

@@ -8,7 +8,7 @@ export default function NotFound() {
       <p className="text-primary font-serif text-6xl">404</p>
       <h1 className="mt-4">Không tìm thấy trang</h1>
       <p className="text-muted-foreground mt-2">
-        Trang bạn tìm không tồn tại, hoặc nhân vật / chính thể này đã bị gỡ.
+        Trang bạn tìm không tồn tại, hoặc nhân vật, chính thể hay sự kiện này đã bị gỡ.
       </p>
       <div className="mt-6 flex justify-center gap-3">
         <Link href="/">
