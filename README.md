@@ -52,6 +52,8 @@ Tài khoản admin dùng để test (chỉ môi trường dev, **đổi khi lên
 | Email    | `admin@lineagraph.test` |
 | Mật khẩu | `line@123`              |
 
+Triển khai lên Railway: xem [`docs/deploy.md`](docs/deploy.md).
+
 Khi sửa schema trong `packages/core/src/schema/`:
 
 ```

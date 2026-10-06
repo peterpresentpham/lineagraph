@@ -1,0 +1,72 @@
+# Checks every pull request and every push to main. Railway deploys main only after this passes
+# (service setting "Wait for CI", see docs/deploy.md).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lineagraph
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The integration tests run only when TEST_DATABASE_URL is set.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/lineagraph
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lineagraph
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from "packageManager" in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format
+        run: pnpm format:check
+
+      - name: Type check
+        run: pnpm typecheck
+
+      # Also proves that every migration applies to an empty database.
+      - name: Migrate and seed the test database
+        run: |
+          pnpm db:migrate
+          pnpm db:seed
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
