@@ -32,6 +32,7 @@ export async function listCitations(subjectTable: string, subjectId: string) {
       locator: citation.locator,
       quote: citation.quote,
       confidence: citation.confidence,
+      stance: citation.stance,
       source: { id: source.id, title: source.title, author: source.author, url: source.url },
     })
     .from(citation)

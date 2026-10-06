@@ -23,12 +23,21 @@ type Citation = {
   locator: string | null;
   quote: string | null;
   confidence: number;
+  stance: Stance;
   source: { id: string; title: string; author: string | null; url: string | null };
 };
 type Source = { id: string; title: string; author: string | null };
 
+type Stance = "supports" | "disputes" | "mentions";
+const stanceLabels: Record<Stance, string> = {
+  supports: "Ủng hộ",
+  disputes: "Phản bác",
+  mentions: "Chỉ nhắc đến",
+};
+const emptyForm = { sourceId: "", locator: "", quote: "", confidence: "3", stance: "supports" };
+
 type Props = {
-  subjectTable: "person" | "polity";
+  subjectTable: "person" | "polity" | "event" | "tenure" | "relation";
   subjectId: string;
 };
 
@@ -36,7 +45,7 @@ type Props = {
 export function CitationsPanel({ subjectTable, subjectId }: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ sourceId: "", locator: "", quote: "", confidence: "3" });
+  const [form, setForm] = useState(emptyForm);
 
   const { data } = useQuery({
     queryKey: ["citations", subjectTable, subjectId],
@@ -60,6 +69,7 @@ export function CitationsPanel({ subjectTable, subjectId }: Props) {
         locator: form.locator || null,
         quote: form.quote || null,
         confidence: Number(form.confidence),
+        stance: form.stance,
       });
     },
     onSuccess: () => {
@@ -78,7 +88,7 @@ export function CitationsPanel({ subjectTable, subjectId }: Props) {
         </p>
         <Button
           onClick={() => {
-            setForm({ sourceId: "", locator: "", quote: "", confidence: "3" });
+            setForm(emptyForm);
             setOpen(true);
           }}
         >
@@ -105,7 +115,7 @@ export function CitationsPanel({ subjectTable, subjectId }: Props) {
                 </blockquote>
               )}
               <div className="text-muted-foreground mt-1 text-xs">
-                Độ chắc chắn: {c.confidence}/5
+                {stanceLabels[c.stance]} · Độ chắc chắn: {c.confidence}/5
               </div>
             </div>
             <ConfirmDelete
@@ -168,6 +178,23 @@ export function CitationsPanel({ subjectTable, subjectId }: Props) {
             value={form.quote}
             onChange={(e) => setForm({ ...form, quote: e.target.value })}
           />
+        </Field>
+        <Field
+          label="Nguồn này nói gì"
+          hint="Chọn Phản bác khi nguồn ghi khác với điều đang được nêu."
+        >
+          <Select value={form.stance} onValueChange={(stance) => setForm({ ...form, stance })}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(stanceLabels) as Stance[]).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {stanceLabels[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field label="Độ chắc chắn">
           <Select

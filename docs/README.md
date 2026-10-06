@@ -18,9 +18,15 @@ năng cốt lõi) → mục 14 (MVP và lộ trình) → mục 15–16 (câu h�
 ## Trạng thái
 
 - **Giai đoạn:** app đã chạy được: web công khai, trang admin (nhân vật, chính thể, địa điểm,
-  quan hệ, chức vụ, nguồn, kiểm tra dữ liệu) và API đều có logic thật trên Postgres. Chưa làm:
+  quan hệ, chức vụ, nguồn, kiểm tra dữ liệu) và API đều có logic thật trên Postgres.
+  Admin có menu nhóm (Nội dung, Tư liệu, Hệ thống), tìm nhanh `Ctrl/⌘+K`, nút "+ Thêm" ở mọi trang;
+  danh sách có bộ lọc lưu trên URL, chọn nhiều dòng, xoá có "Hoàn tác" (xoá mềm nhân vật, chính thể,
+  sự kiện); trang chi tiết là một trang cuộn có mục lục, thanh Lưu (`Ctrl/⌘+S`) và thêm nhanh
+  cha/mẹ, vợ/chồng, con ngay trong thẻ Quan hệ; Tổng quan liệt kê việc cần làm và thay đổi gần đây. Chưa làm:
   hàng đợi duyệt (`/review-queue*`) và phần học thẻ (`/review/today`, `/progress`), các route này
-  vẫn trả `501 not_implemented`; bảng sự kiện; importer hàng loạt. Với các bảng, nguồn sự thật là
+  vẫn trả `501 not_implemented`; importer hàng loạt, ảnh và bản đồ.
+  Đã có: sự kiện với người tham gia theo vai trò, độ chắc chắn và ghi chú tranh cãi cho quan hệ và
+  chức vụ, phiên bản thay thế của chức vụ, trích dẫn có lập trường (ủng hộ, phản bác, nhắc đến). Với các bảng, nguồn sự thật là
   `docs/database.md` và `packages/core/src/schema/`; những mô tả bảng `parentage`, `union`,
   `person_closure`, `kinship_ruleset` trong `design.md` là thiết kế ban đầu đã được thay bằng
   `kg.relation`.

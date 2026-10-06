@@ -21,6 +21,10 @@ const tools = [
   },
 ];
 
+// Reads the API, which is not running while the site is built, so render per request (the fetches
+// inside are still cached for a minute, see lib/api.ts).
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [{ items: polities, total: polityTotal }, persons, typeLabels] = await Promise.all([
     apiGet<{ items: PolitySummary[]; total: number }>("/polities?limit=6"),

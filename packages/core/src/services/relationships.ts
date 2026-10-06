@@ -138,6 +138,8 @@ export type RelationshipView = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  disputeNote: string | null;
+  confidence: number | null;
   importance: number;
   start: DateView | null;
   end: DateView | null;
@@ -152,14 +154,16 @@ type RelationRow = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  dispute_note: string | null;
+  confidence: number | null;
   importance: number;
   start_edtf: string | null;
   end_edtf: string | null;
 };
 
 const relationSelect = sql`
-  select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.note, r.disputed, r.importance,
-         sd.edtf as start_edtf, ed.edtf as end_edtf
+  select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.note, r.disputed,
+         r.dispute_note, r.confidence, r.importance, sd.edtf as start_edtf, ed.edtf as end_edtf
   from kg.relation r
   join kg.node fn on fn.id = r.from_id and fn.deleted_at is null
   join kg.node tn on tn.id = r.to_id and tn.deleted_at is null
@@ -194,6 +198,8 @@ async function toViews(rows: RelationRow[]): Promise<RelationshipView[]> {
         label: r.label,
         note: r.note,
         disputed: r.disputed,
+        disputeNote: r.dispute_note,
+        confidence: r.confidence,
         importance: r.importance,
         start: parseDate(r.start_edtf),
         end: parseDate(r.end_edtf),
@@ -245,6 +251,8 @@ export type NodeRelation = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  disputeNote: string | null;
+  confidence: number | null;
   start: DateView | null;
   end: DateView | null;
 };
@@ -269,6 +277,8 @@ export async function getNodeRelations(nodeId: string): Promise<NodeRelation[]> 
       label: v.label,
       note: v.note,
       disputed: v.disputed,
+      disputeNote: v.disputeNote,
+      confidence: v.confidence,
       start: v.start,
       end: v.end,
     };
@@ -292,10 +302,11 @@ export async function createRelationship(input: RelationshipInput) {
     with noop as (select 1)
     ${start.insert ? sql`, sd as (${start.insert})` : sql``}
     ${end.insert ? sql`, ed as (${end.insert})` : sql``}
-    insert into kg.relation (type, from_id, to_id, variant, label, note, disputed, importance,
-                             start_id, end_id, state)
+    insert into kg.relation (type, from_id, to_id, variant, label, note, disputed, dispute_note,
+                             confidence, importance, start_id, end_id, state)
     values (${type}, ${fromId}::uuid, ${toId}::uuid, ${input.variant}, ${input.label}, ${input.note},
-            ${input.disputed}, ${importance}, ${start.id}::uuid, ${end.id}::uuid, 'approved')
+            ${input.disputed}, ${input.disputeNote}, ${input.confidence ?? null}, ${importance},
+            ${start.id}::uuid, ${end.id}::uuid, 'approved')
     returning id`);
   return row!;
 }
@@ -313,7 +324,8 @@ export async function updateRelationship(id: string, input: RelationshipInput) {
       sql`upd as (
         update kg.relation set type = ${type}, from_id = ${fromId}::uuid, to_id = ${toId}::uuid,
           variant = ${input.variant}, label = ${input.label}, note = ${input.note},
-          disputed = ${input.disputed},
+          disputed = ${input.disputed}, dispute_note = ${input.disputeNote},
+          confidence = ${input.confidence ?? null},
           importance = coalesce(${input.importance ?? null}::smallint, importance),
           start_id = ${start.id}::uuid, end_id = ${end.id}::uuid
         where id = ${id}::uuid returning id)`,

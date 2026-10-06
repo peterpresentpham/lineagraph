@@ -22,9 +22,12 @@ export async function listTenures(opts: { personId?: string; polityId?: string }
     end_edtf: string | null;
     seq: number | null;
     disputed: boolean;
+    confidence: number | null;
+    state: string;
   }>(
     sql`select t.id, t.person_id, pm.name as person_name, t.polity_id, qm.name as polity_name, t.office_type,
-               sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed
+               sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed,
+               t.confidence, t.state
         from history.tenure t
         join kg.node pn on pn.id = t.person_id and pn.deleted_at is null
         join kg.name pm on pm.node_id = t.person_id and pm.is_primary
@@ -45,6 +48,8 @@ export async function listTenures(opts: { personId?: string; polityId?: string }
     end: parseDate(r.end_edtf),
     seq: r.seq,
     disputed: r.disputed,
+    confidence: r.confidence,
+    state: r.state,
   }));
 }
 
@@ -57,10 +62,14 @@ export async function getTenureForEdit(id: string) {
     succession_mode: string | null;
     seq: number | null;
     disputed: boolean;
+    confidence: number | null;
+    note: string | null;
+    state: string;
     start_edtf: string | null;
     end_edtf: string | null;
   }>(
     sql`select t.id, t.person_id, t.polity_id, t.office_type, t.succession_mode, t.seq, t.disputed,
+               t.confidence, t.note, t.state,
                sd.edtf as start_edtf, ed.edtf as end_edtf
         from history.tenure t
         left join kg.fuzzy_date sd on sd.id = t.start_id
@@ -87,6 +96,9 @@ export async function getTenureForEdit(id: string) {
     successionMode: row.succession_mode,
     seq: row.seq,
     disputed: row.disputed,
+    confidence: row.confidence,
+    note: row.note,
+    state: row.state,
     start: parseDate(row.start_edtf),
     end: parseDate(row.end_edtf),
     eras: eras.map((e) => ({
@@ -148,10 +160,10 @@ export async function createTenure(input: TenureInput) {
   const [row] = await db.execute<{ id: string }>(sql`
     with created as (
       insert into history.tenure (id, person_id, polity_id, office_type, succession_mode, seq,
-                                  disputed, start_id, end_id)
+                                  disputed, confidence, note, state, start_id, end_id)
       values (${id}::uuid, ${input.personId}::uuid, ${input.polityId ?? null}::uuid,
               ${input.officeType}, ${input.successionMode}, ${input.seq ?? null}, ${input.disputed},
-              ${startId}::uuid, ${endId}::uuid)
+              ${input.confidence ?? null}, ${input.note}, ${input.state}, ${startId}::uuid, ${endId}::uuid)
       returning id)
     ${ctes.length ? sql`, ${sql.join(ctes, sql`, `)}` : sql``}
     select id from created`);
@@ -171,7 +183,8 @@ export async function updateTenure(id: string, input: TenureInput) {
       update history.tenure set person_id = ${input.personId}::uuid,
         polity_id = ${input.polityId ?? null}::uuid, office_type = ${input.officeType},
         succession_mode = ${input.successionMode}, seq = ${input.seq ?? null},
-        disputed = ${input.disputed}, start_id = ${startId}::uuid, end_id = ${endId}::uuid
+        disputed = ${input.disputed}, confidence = ${input.confidence ?? null},
+        note = ${input.note}, state = ${input.state}, start_id = ${startId}::uuid, end_id = ${endId}::uuid
       where id = ${id}::uuid returning id),
     gone_dates as (
       delete from kg.fuzzy_date where id in (

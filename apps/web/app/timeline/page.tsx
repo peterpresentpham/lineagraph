@@ -17,6 +17,10 @@ const century = (year: number) =>
   year >= 0 ? Math.ceil(Math.max(year, 1) / 100) : -Math.ceil(-year / 100);
 const centuryLabel = (c: number) => (c > 0 ? `Thế kỷ ${c}` : `Thế kỷ ${-c} TCN`);
 
+// Reads the API, which is not running while the site is built, so render per request (the fetches
+// inside are still cached for a minute, see lib/api.ts).
+export const dynamic = "force-dynamic";
+
 export default async function TimelinePage() {
   const entries = await apiGet<TimelineEntry[]>("/timeline");
   const groups = new Map<number, TimelineEntry[]>();

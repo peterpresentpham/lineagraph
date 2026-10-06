@@ -1,4 +1,4 @@
-import { History, Landmark, Network, Route, Users } from "lucide-react";
+import { History, Landmark, Network, Route, Swords, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type NavItem = {
@@ -12,6 +12,7 @@ export type NavItem = {
 export const nav: NavItem[] = [
   { href: "/persons", label: "Nhân vật", icon: Users, also: ["/person/"] },
   { href: "/polities", label: "Chính thể", icon: Landmark, also: ["/polity/"] },
+  { href: "/events", label: "Sự kiện", icon: Swords, also: ["/event/"] },
   { href: "/graph", label: "Sơ đồ", icon: Network },
   { href: "/relations", label: "Tìm quan hệ", icon: Route },
   { href: "/timeline", label: "Dòng thời gian", icon: History },

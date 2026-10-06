@@ -198,8 +198,11 @@ export const citation = kg.table(
     locator: text("locator"),
     quote: text("quote"),
     confidence: smallint("confidence").notNull(),
+    // What the source says about the fact: backs it, disputes it, or only mentions it.
+    stance: text("stance").notNull().default("supports"),
   },
   (t) => [
+    check("citation_stance_check", sql`${t.stance} in ('supports', 'disputes', 'mentions')`),
     index("citation_subject_idx").on(t.subjectTable, t.subjectId),
     // The same source and place in it cannot back the same fact twice.
     uniqueIndex("citation_unique_key").on(
@@ -232,6 +235,10 @@ export const relation = kg.table(
     note: text("note"),
     // Sources disagree; hidden from path-finding unless the caller opts in.
     disputed: boolean("disputed").notNull().default(false),
+    // Why the relation is contested, and by whom (shown with the "sources disagree" badge).
+    disputeNote: text("dispute_note"),
+    // How sure the editor is that the relation is real: 1 (a guess) to 5 (well attested). Null = not rated.
+    confidence: smallint("confidence"),
     // 1 (minor) to 5 (core). Graph views show only links at or above a threshold at first and
     // reveal the rest on "load more", so a dynasty graph can start with just its rulers.
     importance: smallint("importance").notNull().default(3),
@@ -252,6 +259,7 @@ export const relation = kg.table(
     ),
     check("relation_not_self_check", sql`${t.fromId} <> ${t.toId}`),
     check("relation_importance_check", sql`${t.importance} between 1 and 5`),
+    check("relation_confidence_check", sql`${t.confidence} between 1 and 5`),
   ],
 );
 

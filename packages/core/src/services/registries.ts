@@ -11,6 +11,8 @@ const tables = {
   office_type: { schema: "history", editable: true },
   succession_mode: { schema: "history", editable: true },
   attribute_type: { schema: "kg", editable: true },
+  event_type: { schema: "history", editable: true },
+  participant_role: { schema: "history", editable: true },
   relation_type: { schema: "kg", editable: false },
   calendar: { schema: "kg", editable: false },
 } as const;

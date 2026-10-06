@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
+import { CitationList } from "@/components/CitationList";
+import { EventCard } from "@/components/EventCard";
+import { FamilySection } from "@/components/FamilySection";
 import { JsonLd, isoDate } from "@/components/JsonLd";
+import { LifeTimeline, type TimelineItem } from "@/components/LifeTimeline";
 import { Monogram } from "@/components/Monogram";
 import { PageHeader } from "@/components/PageHeader";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
@@ -10,8 +14,8 @@ import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
 import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
-import { historicityLabels, lifeSpan, sexLabels } from "@/lib/labels";
-import type { Citation, PersonDetail } from "@/lib/types";
+import { dateKey, historicityLabels, lifeSpan, sexLabels } from "@/lib/labels";
+import type { Citation, EventSummary, PersonDetail } from "@/lib/types";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -30,12 +34,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PersonPage({ params }: Props) {
   const { slug } = await params;
   const person = await apiGet<PersonDetail>(`/persons/${slug}`);
-  const [citations, nameKinds, offices] = await Promise.all([
+  const [citations, events, nameKinds, offices] = await Promise.all([
     apiGet<Citation[]>(`/citations?subjectTable=person&subjectId=${person.id}`),
+    apiGet<{ items: EventSummary[] }>(`/events?node=${person.id}&limit=50`),
     getLabels("name_kind"),
     getLabels("office_type"),
   ]);
   const otherNames = person.names.filter((n) => !n.isPrimary);
+
+  // The life in order: birth, offices and events that have a date, death. Undated ones stay in
+  // their own sections below.
+  const life: TimelineItem[] = [
+    ...(person.birth
+      ? [{ date: person.birth, title: "Sinh", detail: person.birthPlace?.name }]
+      : []),
+    ...person.tenures
+      .filter((t) => t.start && t.state === "accepted")
+      .map((t): TimelineItem => ({
+        date: t.start,
+        title: offices[t.officeType] ?? t.officeType,
+        detail: [t.polity?.name, t.end ? `đến ${t.end.label}` : null].filter(Boolean).join(" · "),
+        href: t.polity?.slug ? `/polity/${t.polity.slug}` : undefined,
+      })),
+    ...events.items
+      .filter((e) => e.start)
+      .map((e): TimelineItem => ({
+        date: e.start,
+        title: e.name,
+        detail: [e.eventTypeLabel, e.place?.name].filter(Boolean).join(" · "),
+        href: `/event/${e.slug}`,
+      })),
+    ...(person.death
+      ? [{ date: person.death, title: "Mất", detail: person.deathPlace?.name }]
+      : []),
+  ].sort((a, b) => (dateKey(a.date) ?? 0) - (dateKey(b.date) ?? 0));
 
   return (
     <>
@@ -96,6 +128,18 @@ export default async function PersonPage({ params }: Props) {
         </Section>
       )}
 
+      {life.length >= 2 && (
+        <Section title="Dòng đời">
+          <LifeTimeline items={life} />
+        </Section>
+      )}
+
+      {person.relations.some((r) => ["child_of", "spouse_of", "parent_of"].includes(r.type)) && (
+        <Section title="Gia đình">
+          <FamilySection relations={person.relations} />
+        </Section>
+      )}
+
       {person.attributes.length > 0 && (
         <Section title="Thông tin">
           <Attributes items={person.attributes} />
@@ -126,10 +170,21 @@ export default async function PersonPage({ params }: Props) {
                   )}
                 </div>
                 <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  {t.state === "alternative" && <Badge variant="neutral">Phiên bản khác</Badge>}
                   {t.disputed && <Badge variant="warning">Còn tranh cãi</Badge>}
                   {t.start || t.end ? `${t.start?.label ?? "?"} – ${t.end?.label ?? "?"}` : ""}
                 </div>
               </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {events.items.length > 0 && (
+        <Section title="Sự kiện tham gia">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {events.items.map((e) => (
+              <EventCard key={e.id} event={e} />
             ))}
           </div>
         </Section>
@@ -162,30 +217,7 @@ export default async function PersonPage({ params }: Props) {
 
       {citations.length > 0 && (
         <Section title="Nguồn tư liệu">
-          <ul className="flex flex-col gap-2">
-            {citations.map((c) => (
-              <li key={c.id} className="surface p-4 text-sm">
-                <div className="font-medium">
-                  {c.source.url ? (
-                    <a href={c.source.url} target="_blank" rel="noreferrer">
-                      {c.source.title}
-                    </a>
-                  ) : (
-                    c.source.title
-                  )}
-                  {c.source.author && (
-                    <span className="text-muted-foreground font-normal"> — {c.source.author}</span>
-                  )}
-                </div>
-                {c.locator && <div className="text-muted-foreground">{c.locator}</div>}
-                {c.quote && (
-                  <blockquote className="text-muted-foreground mt-2 border-l-2 pl-3">
-                    {c.quote}
-                  </blockquote>
-                )}
-              </li>
-            ))}
-          </ul>
+          <CitationList citations={citations} />
         </Section>
       )}
     </>

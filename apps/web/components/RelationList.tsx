@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Badge, Button } from "@lineagraph/ui";
-import { categoryLabels, variantLabels } from "@/lib/labels";
+import { categoryLabels, confidenceLabels, variantLabels } from "@/lib/labels";
 import type { NodeRelation } from "@/lib/types";
 
 type RelationListProps = { relations: NodeRelation[] };
@@ -49,6 +49,14 @@ export function RelationList({ relations }: RelationListProps) {
                   )}
                 </div>
                 {r.note && <p className="text-muted-foreground mt-1 text-sm">{r.note}</p>}
+                {r.disputed && r.disputeNote && (
+                  <p className="text-muted-foreground mt-1 text-sm italic">{r.disputeNote}</p>
+                )}
+                {r.confidence != null && r.confidence <= 2 && (
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Độ chắc chắn: {confidenceLabels[r.confidence]}
+                  </p>
+                )}
               </Link>
             ))}
           </div>

@@ -1,6 +1,6 @@
 # Sơ đồ quan hệ của cơ sở dữ liệu
 
-> Địa điểm: bảng `history.place` (phân cấp qua `parent_id`, toạ độ tuỳ chọn); nhân vật trỏ tới nó bằng `birth_place_id` và `death_place_id`. Sự kiện chưa có bảng riêng.
+> Địa điểm: bảng `history.place` (phân cấp qua `parent_id`, toạ độ tuỳ chọn); nhân vật trỏ tới nó bằng `birth_place_id` và `death_place_id`. Sự kiện là một `kg.node` loại `event` kèm bảng `history.event` và `history.event_participant` (xem mục 2.1).
 
 Nguồn sự thật là các file schema Drizzle trong `packages/core/src/schema/` (`kg.ts`, `history.ts`, `learning.ts`, `auth.ts`). File này chỉ là bản vẽ để đọc nhanh; khi đổi schema, hãy cập nhật lại cho khớp.
 
@@ -61,6 +61,8 @@ erDiagram
         text label "Hoàng hậu, Quân sư..."
         text note
         bool disputed "còn tranh cãi"
+        text dispute_note "tranh cãi về điều gì"
+        int confidence "1 đến 5, null là chưa đánh giá"
         int importance "1 đến 5, quyết định hiện sớm hay muộn trên sơ đồ"
         uuid start_id FK
         uuid end_id FK
@@ -195,9 +197,26 @@ erDiagram
 
 Cả hai FK `start_id` / `end_id` của `tenure` trỏ về `kg.fuzzy_date` (ngày mờ lưu dạng EDTF kèm khoảng JDN).
 
+`tenure` còn có `confidence` (1 đến 5, null là chưa đánh giá), `note` và `state` (`accepted` hoặc
+`alternative`). Phiên bản `alternative` ghi lại cách hiểu của một sử gia khác cho cùng một ngôi vị;
+sơ đồ, danh sách chính thể dùng `accepted` và kiểm tra chồng lấn bỏ qua `alternative`.
+
+### 2.1. Sự kiện
+
+`history.event` (1-1 với `kg.node.kind = 'event'`, nên có tên, slug, nguồn, nhật ký như nhân vật):
+`event_type` (danh mục `history.event_type`), `start_id`, `end_id` (ngày mờ), `place_id`,
+`parent_event_id` (chiến dịch chứa trận đánh), `summary`, `outcome`. Văn bản dài nằm ở `kg.node.body`.
+
+`history.event_participant` (`event_id`, `node_id`, `role`, `side`, `note`, `sort_order`): người hoặc
+chính thể tham gia với vai trò thuộc danh mục `history.participant_role`. `side` gom các bên của
+một cuộc chiến hay hiệp ước (1, 2...). Khoá duy nhất `(event_id, node_id, role)`; ghi lại danh sách
+dùng upsert chứ không xoá rồi chèn, vì hai việc đó chạy chung một câu SQL nên không có thứ tự cố định.
+Sự kiện chưa là nút trong đồ thị quan hệ (đồ thị chỉ có nhân vật và chính thể); xem sự kiện của một
+nút bằng `GET /events?node=<id>`.
+
 ## 3. Nguồn, trích dẫn, ngày mờ và nhật ký
 
-`kg.citation` là **tham chiếu đa hình**: `(subject_table, subject_id)` có thể trỏ tới `person`, `polity`, `tenure` hoặc `relation`, nên không có khoá ngoại thật cho cột `subject_id`.
+`kg.citation` là **tham chiếu đa hình**: `(subject_table, subject_id)` có thể trỏ tới `person`, `polity`, `event`, `tenure` hoặc `relation`, nên không có khoá ngoại thật cho cột `subject_id`. Cột `stance` (`supports`, `disputes`, `mentions`) cho biết nguồn ủng hộ, phản bác hay chỉ nhắc đến điều được nêu, để một quan hệ còn tranh cãi trỏ được tới nguồn của từng phía.
 
 ```mermaid
 erDiagram
@@ -309,6 +328,8 @@ Những bảng chỉ có cột `code` (và vài cột phụ) dùng làm khoá ng
 | `history.polity_type`        | `history.polity`                      | Có                         |
 | `history.office_type`        | `history.tenure`                      | Có                         |
 | `history.succession_mode`    | `history.tenure`, `tenure_succession` | Có                         |
+| `history.event_type`         | `history.event`                       | Có                         |
+| `history.participant_role`   | `history.event_participant`           | Có                         |
 
 ## 6. Những chỗ chưa có khoá ngoại
 

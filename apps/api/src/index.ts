@@ -9,6 +9,7 @@ import { errorHandler, publicCache } from "./http.js";
 import { auditWrites } from "./middleware/audit.js";
 import { authRouter } from "./routes/auth.js";
 import { graphRouter } from "./routes/graph.js";
+import { eventsRouter } from "./routes/events.js";
 import { placesRouter } from "./routes/places.js";
 import { relationsRouter } from "./routes/relations.js";
 import { searchRouter } from "./routes/search.js";
@@ -78,6 +79,7 @@ app.use(
     "/persons",
     "/polities",
     "/places",
+    "/events",
     "/nodes",
   ],
   publicCache(30),
@@ -89,6 +91,7 @@ app.use(searchRouter);
 app.use(timelineRouter);
 app.use(registryRouter);
 app.use(placesRouter);
+app.use(eventsRouter);
 app.use(provenanceRouter);
 app.use(authRouter);
 app.use(contentRouter);

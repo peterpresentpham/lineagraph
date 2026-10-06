@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { categoryLabels, variantOptions } from "../lib/format";
 import type { NodeRef, RelationshipView } from "../lib/types";
 import { ConfirmDelete } from "./ConfirmDelete";
+import { QuickRelations } from "./QuickRelations";
 import { RelationForm } from "./RelationForm";
 
 type Props = { node: NodeRef };
@@ -50,6 +51,7 @@ export function RelationsPanel({ node }: Props) {
           <Plus /> Thêm quan hệ
         </Button>
       </div>
+      <QuickRelations node={node} />
       {data && data.length === 0 && (
         <p className="text-muted-foreground rounded-xl border border-dashed p-8 text-center">
           Chưa có quan hệ nào.

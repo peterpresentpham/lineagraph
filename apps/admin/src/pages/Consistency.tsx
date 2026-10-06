@@ -12,13 +12,15 @@ type Check =
   | "death_before_birth"
   | "tenure_ends_before_start"
   | "overlapping_tenures"
-  | "node_without_source";
+  | "node_without_source"
+  | "event_without_participants"
+  | "participant_outside_lifespan";
 
 type Issue = {
   check: Check;
   severity: "error" | "warning" | "info";
   message: string;
-  nodes: { id: string; kind: "person" | "polity"; name: string }[];
+  nodes: { id: string; kind: "person" | "polity" | "event"; name: string }[];
 };
 
 type Report = { generatedAt: string; counts: Record<Check, number>; issues: Issue[] };
@@ -57,7 +59,17 @@ const checks: { key: Check; title: string; hint: string }[] = [
   {
     key: "node_without_source",
     title: "Chưa có nguồn trích dẫn",
-    hint: "Nhân vật hoặc chính thể chưa có nguồn nào cho chính nó, quan hệ hay chức vụ của nó.",
+    hint: "Nhân vật, chính thể hoặc sự kiện chưa có nguồn nào cho chính nó, quan hệ hay chức vụ của nó.",
+  },
+  {
+    key: "event_without_participants",
+    title: "Sự kiện chưa có người tham gia",
+    hint: "Sự kiện chưa ghi nhân vật hay chính thể nào tham gia.",
+  },
+  {
+    key: "participant_outside_lifespan",
+    title: "Tham gia khi chưa sinh hoặc đã mất",
+    hint: "Người tham gia mất trước khi sự kiện bắt đầu hoặc sinh sau khi sự kiện kết thúc.",
   },
 ];
 
@@ -75,7 +87,7 @@ export function Consistency() {
   return (
     <>
       <PageHeader
-        title="Kiểm tra dữ liệu"
+        title="Chất lượng dữ liệu"
         description="Tìm những chỗ dữ liệu mâu thuẫn: ngày tháng đảo ngược, vòng tổ tiên, hai người cùng giữ một ngôi, mục chưa có nguồn."
         action={
           <Button variant="secondary" disabled={isFetching} onClick={() => void refetch()}>
@@ -114,7 +126,7 @@ export function Consistency() {
                           {issue.nodes.map((n) => (
                             <Link
                               key={n.id}
-                              to={`/${n.kind === "person" ? "persons" : "polities"}/${n.id}`}
+                              to={`/${n.kind === "person" ? "persons" : n.kind === "polity" ? "polities" : "events"}/${n.id}`}
                               className="text-primary"
                             >
                               Mở {n.name}

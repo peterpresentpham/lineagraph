@@ -5,7 +5,7 @@ import { db, sql } from "../db";
 import * as kg from "../schema/kg";
 import * as history from "../schema/history";
 
-const nodeKinds = ["person", "polity"];
+const nodeKinds = ["person", "polity", "event"];
 
 // code -> Vietnamese label, shown in the UI (kg.label, namespace = table name).
 const nameKinds = {
@@ -291,7 +291,102 @@ const relationTypes: {
     subjects: ["polity"],
     objects: ["polity"],
   },
+  {
+    code: "at_war_with",
+    label: "Giao chiến với",
+    inverse: null,
+    symmetric: true,
+    primary: true,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
+  {
+    code: "appointed",
+    label: "Đã bổ nhiệm",
+    inverse: "appointed_by",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "appointed_by",
+    label: "Được bổ nhiệm bởi",
+    inverse: "appointed",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "regent_for",
+    label: "Nhiếp chính cho",
+    inverse: "under_regency_of",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "under_regency_of",
+    label: "Được nhiếp chính bởi",
+    inverse: "regent_for",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["person"],
+    objects: ["person"],
+  },
+  {
+    code: "rebelled_against",
+    label: "Nổi dậy chống lại",
+    inverse: "rebelled_against_by",
+    symmetric: false,
+    primary: true,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
+  {
+    code: "rebelled_against_by",
+    label: "Bị nổi dậy chống lại bởi",
+    inverse: "rebelled_against",
+    symmetric: false,
+    primary: false,
+    category: "politics",
+    subjects: ["person", "polity"],
+    objects: ["person", "polity"],
+  },
 ];
+const eventTypes = {
+  battle: "Trận đánh",
+  siege: "Cuộc vây hãm",
+  war: "Chiến tranh",
+  treaty: "Hiệp ước",
+  coronation: "Lễ đăng quang",
+  abdication: "Thoái vị",
+  rebellion: "Khởi nghĩa / nổi loạn",
+  marriage: "Hôn lễ",
+  founding: "Khai lập",
+  assassination: "Ám sát",
+  disaster: "Thiên tai / dịch bệnh",
+  other: "Khác",
+};
+const participantRoles = {
+  commander: "Chỉ huy",
+  belligerent: "Bên tham chiến",
+  signatory: "Bên ký kết",
+  victor: "Bên thắng",
+  vanquished: "Bên thua",
+  victim: "Nạn nhân",
+  organizer: "Người khởi xướng",
+  witness: "Chứng kiến",
+  participant: "Tham dự",
+};
 const attributeTypes = {
   hometown: "Quê quán",
   birth_place: "Nơi sinh",
@@ -372,6 +467,14 @@ for (const r of relationTypes) {
     .onConflictDoUpdate({ target: kg.relationType.code, set: row });
 }
 await db
+  .insert(history.eventType)
+  .values(Object.keys(eventTypes).map((code) => ({ code })))
+  .onConflictDoNothing();
+await db
+  .insert(history.participantRole)
+  .values(Object.keys(participantRoles).map((code) => ({ code })))
+  .onConflictDoNothing();
+await db
   .insert(kg.attributeType)
   .values(Object.keys(attributeTypes).map((code) => ({ code })))
   .onConflictDoNothing();
@@ -385,6 +488,8 @@ addLabels(
 addLabels("succession_mode", successionModes);
 addLabels("relation_type", Object.fromEntries(relationTypes.map((r) => [r.code, r.label])));
 addLabels("attribute_type", attributeTypes);
+addLabels("event_type", eventTypes);
+addLabels("participant_role", participantRoles);
 addLabels("calendar", calendars);
 await db
   .insert(kg.label)

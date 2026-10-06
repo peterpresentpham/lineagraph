@@ -9,6 +9,7 @@ const tables: Record<string, string> = {
   tenures: "tenure",
   relationships: "relation",
   places: "place",
+  events: "event",
   sources: "source",
   citations: "citation",
 };
@@ -21,8 +22,10 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * response has been sent and never fails the request: a logging problem is only printed.
  */
 export const auditWrites: RequestHandler = (req, res, next) => {
-  const kind = action[req.method as keyof typeof action];
-  if (!kind) return next();
+  const method = action[req.method as keyof typeof action];
+  if (!method) return next();
+  // POST /persons/:id/restore undoes a delete; it is not a create.
+  const kind = method === "create" && req.path.endsWith("/restore") ? "restore" : method;
 
   // A create returns the new row's id in its body; capture it as the response goes out.
   let createdId: string | undefined;

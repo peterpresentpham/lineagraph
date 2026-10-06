@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
+import { CitationList } from "@/components/CitationList";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
@@ -8,7 +9,8 @@ import { JsonLd, isoDate } from "@/components/JsonLd";
 import { PageHeader } from "@/components/PageHeader";
 import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
-import type { PolityDetail } from "@/lib/types";
+import type { Citation, EventSummary, PolityDetail } from "@/lib/types";
+import { EventCard } from "@/components/EventCard";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -27,7 +29,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PolityPage({ params }: Props) {
   const { slug } = await params;
   const polity = await apiGet<PolityDetail>(`/polities/${slug}`);
-  const [typeLabels, offices, modes] = await Promise.all([
+  const [citations, events, typeLabels, offices, modes] = await Promise.all([
+    apiGet<Citation[]>(`/citations?subjectTable=polity&subjectId=${polity.id}`),
+    apiGet<{ items: EventSummary[] }>(`/events?node=${polity.id}&limit=50`),
     getLabels("polity_type"),
     getLabels("office_type"),
     getLabels("succession_mode"),
@@ -127,6 +131,7 @@ export default async function PolityPage({ params }: Props) {
                   </div>
                 </div>
                 <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  {t.state === "alternative" && <Badge variant="neutral">Phiên bản khác</Badge>}
                   {t.disputed && <Badge variant="warning">Còn tranh cãi</Badge>}
                   {t.start || t.end ? `${t.start?.label ?? "?"} – ${t.end?.label ?? "?"}` : ""}
                 </div>
@@ -135,6 +140,22 @@ export default async function PolityPage({ params }: Props) {
           </ol>
         )}
       </Section>
+
+      {events.items.length > 0 && (
+        <Section title="Sự kiện liên quan">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {events.items.map((e) => (
+              <EventCard key={e.id} event={e} />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {citations.length > 0 && (
+        <Section title="Nguồn tư liệu">
+          <CitationList citations={citations} />
+        </Section>
+      )}
     </>
   );
 }

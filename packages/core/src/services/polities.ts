@@ -6,7 +6,7 @@ import { polity } from "../schema/history";
 import { node } from "../schema/kg";
 import type { PolityInput } from "../validation";
 import { dateInsert, parseDate } from "./dates";
-import { nameAttributeCtes, softDeleteNode, uniqueSlug } from "./node";
+import { nameAttributeCtes, softDeleteNode, uniqueSlug, withoutSource } from "./node";
 import { getNodeRelations } from "./relationships";
 import { likeContains, normalizeText } from "./text";
 import { LABEL_LANGUAGE } from "./labels";
@@ -41,6 +41,9 @@ const listItem = (r: ListRow) => ({
 export async function listPolities(opts: {
   q?: string;
   type?: string;
+  /** Only polities that have no source at all. */
+  noSource?: boolean;
+  sort?: "date" | "name";
   limit?: number;
   offset?: number;
 }) {
@@ -51,10 +54,12 @@ export async function listPolities(opts: {
     q
       ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${likeContains(q)})`
       : sql``
-  } ${opts.type ? sql`and p.polity_type = ${opts.type}` : sql``}`;
+  } ${opts.type ? sql`and p.polity_type = ${opts.type}` : sql``} ${opts.noSource ? withoutSource : sql``}`;
+  const order =
+    opts.sort === "name" ? sql`pn.name_normalized` : sql`sd.earliest_jdn nulls last, pn.name`;
   const [rows, [{ count }]] = await Promise.all([
     db.execute<ListRow>(
-      sql`${listSelect} ${filter} order by sd.earliest_jdn nulls last, pn.name limit ${limit} offset ${offset}`,
+      sql`${listSelect} ${filter} order by ${order} limit ${limit} offset ${offset}`,
     ),
     db.execute<{ count: number }>(
       sql`select count(*)::int as count from kg.node n join history.polity p on p.id = n.id
@@ -120,10 +125,11 @@ export async function getPolity(slugOrId: string) {
       end_edtf: string | null;
       seq: number | null;
       disputed: boolean;
+      state: string;
       eras: { name: string }[] | null;
     }>(
       sql`select t.id, t.person_id, pn.slug as person_slug, pm.name as person_name, t.office_type,
-                 t.succession_mode, sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed,
+                 t.succession_mode, sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed, t.state,
                  (select json_agg(json_build_object('name', e.name) order by e.name)
                     from history.tenure_era e where e.tenure_id = t.id) as eras
           from history.tenure t
@@ -157,6 +163,7 @@ export async function getPolity(slugOrId: string) {
       end: parseDate(t.end_edtf),
       seq: t.seq,
       disputed: t.disputed,
+      state: t.state,
       eras: (t.eras ?? []).map((e) => e.name),
     })),
   };

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useBlocker } from "react-router-dom";
+import { useBlocker, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
 import type { RegistryItem } from "./types";
@@ -45,4 +45,44 @@ export function useUnsavedChangesGuard(dirty: boolean) {
   return () => {
     bypass.current = true;
   };
+}
+
+/**
+ * Opens a list page's "add" form when the page is reached with `?new=1` (from the "+ Thêm" menu
+ * or the command palette), then drops the parameter so a refresh does not open it again.
+ */
+export function useOpenCreateFromUrl(openCreate: () => void) {
+  const [params, setParams] = useSearchParams();
+  const openRef = useRef(openCreate);
+  openRef.current = openCreate;
+  const wanted = params.get("new") === "1";
+  useEffect(() => {
+    if (!wanted) return;
+    openRef.current();
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("new");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [wanted, setParams]);
+}
+
+/** Ctrl/Cmd+S runs `onSave` (when `enabled`) instead of the browser's "save page" dialog. */
+export function useSaveShortcut(onSave: () => void, enabled: boolean) {
+  const saveRef = useRef(onSave);
+  saveRef.current = onSave;
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveRef.current();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [enabled]);
 }

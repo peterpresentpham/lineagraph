@@ -127,6 +127,7 @@ export async function getStats() {
           (select count(*)::int from history.tenure t
              join kg.node p on p.id = t.person_id and p.deleted_at is null
              join kg.node q on q.id = t.polity_id and q.deleted_at is null) as tenures,
+          (select count(*)::int from kg.node where kind = 'event' and deleted_at is null) as events,
           (select count(*)::int from kg.relation r
              join kg.node f on f.id = r.from_id and f.deleted_at is null
              join kg.node t on t.id = r.to_id and t.deleted_at is null) as relations,

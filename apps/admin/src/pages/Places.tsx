@@ -4,29 +4,51 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import {
   Button,
   Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
   toast,
 } from "@lineagraph/ui";
-import { ConfirmDelete } from "../components/ConfirmDelete";
+import { DeleteDialog } from "../components/ConfirmDelete";
+import { DataTable, type Column } from "../components/data-table/DataTable";
+import { ListFooter } from "../components/data-table/ListFooter";
+import { ListToolbar } from "../components/data-table/ListToolbar";
 import { Field } from "../components/Field";
 import { FormSheet } from "../components/FormSheet";
 import { PageHeader } from "../components/PageHeader";
 import { PlacePicker } from "../components/PlacePicker";
-import { TableSkeleton } from "../components/TableSkeleton";
 import { api } from "../lib/api";
-import { errorMessage } from "../lib/hooks";
+import { placeTypes } from "../lib/format";
+import { errorMessage, useOpenCreateFromUrl } from "../lib/hooks";
 import type { PlaceSummary } from "../lib/types";
+import { useListState } from "../lib/useListState";
+
+const PAGE_SIZE = 50;
+
+const columns: Column<PlaceSummary>[] = [
+  { key: "name", header: "Tên", mobile: "title", className: "font-medium", cell: (p) => p.name },
+  {
+    key: "type",
+    header: "Loại",
+    cell: (p) => placeTypes.find(([code]) => code === p.placeType)?.[1] ?? "",
+  },
+  { key: "parent", header: "Thuộc", cell: (p) => p.parent?.name ?? "" },
+  {
+    key: "coords",
+    header: "Toạ độ",
+    className: "text-muted-foreground text-sm",
+    cell: (p) => (p.latitude != null && p.longitude != null ? `${p.latitude}, ${p.longitude}` : ""),
+  },
+];
 
 type Form = {
   name: string;
   parentId: string | null;
   parentName: string | null;
+  placeType: string;
   latitude: string;
   longitude: string;
   note: string;
@@ -35,6 +57,7 @@ const emptyForm = (): Form => ({
   name: "",
   parentId: null,
   parentName: null,
+  placeType: "",
   latitude: "",
   longitude: "",
   note: "",
@@ -44,7 +67,8 @@ const toNumber = (v: string) => (v.trim() === "" ? null : Number(v));
 // Where people were born or died; places can sit inside larger places (city inside a province).
 export function Places() {
   const queryClient = useQueryClient();
-  const [q, setQ] = useState("");
+  const list = useListState({ keys: [], pageSize: PAGE_SIZE });
+  const [toDelete, setToDelete] = useState<PlaceSummary | null>(null);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
@@ -52,11 +76,8 @@ export function Places() {
   const [baseline, setBaseline] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["places", q],
-    queryFn: () =>
-      api.get<{ items: PlaceSummary[]; total: number }>(
-        `/places?limit=200&q=${encodeURIComponent(q)}`,
-      ),
+    queryKey: ["places", list.query],
+    queryFn: () => api.get<{ items: PlaceSummary[]; total: number }>(`/places?${list.query}`),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["places"] });
 
@@ -65,6 +86,7 @@ export function Places() {
       const body = {
         name: form.name,
         parentId: form.parentId,
+        placeType: form.placeType || null,
         latitude: toNumber(form.latitude),
         longitude: toNumber(form.longitude),
         note: form.note || null,
@@ -85,11 +107,13 @@ export function Places() {
     setForm(emptyForm());
     setOpen(true);
   };
+  useOpenCreateFromUrl(openCreate);
   const openEdit = (p: PlaceSummary) => {
     const loaded: Form = {
       name: p.name,
       parentId: p.parent?.id ?? null,
       parentName: p.parent?.name ?? null,
+      placeType: p.placeType ?? "",
       latitude: p.latitude?.toString() ?? "",
       longitude: p.longitude?.toString() ?? "",
       note: p.note ?? "",
@@ -111,68 +135,48 @@ export function Places() {
           </Button>
         }
       />
-      <Input
-        placeholder="Tìm theo tên..."
-        className="mb-4 max-w-sm"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
+      <ListToolbar
+        search={list.text}
+        onSearchChange={list.setText}
+        placeholder="Tìm theo tên địa điểm..."
+        hasFilters={list.hasFilters}
+        onClear={list.clearFilters}
       />
-      <div className="bg-card rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tên</TableHead>
-              <TableHead>Thuộc</TableHead>
-              <TableHead>Toạ độ</TableHead>
-              <TableHead className="w-24" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && <TableSkeleton cols={4} />}
-            {data?.items.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.name}</TableCell>
-                <TableCell>{p.parent?.name ?? ""}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {p.latitude != null && p.longitude != null ? `${p.latitude}, ${p.longitude}` : ""}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(p)}>
-                    <Pencil />
-                  </Button>
-                  <ConfirmDelete
-                    title={`Xoá địa điểm "${p.name}"?`}
-                    description="Không xoá được nếu còn nhân vật hoặc địa điểm con đang dùng nơi này."
-                    onConfirm={async () => {
-                      await api.del(`/places/${p.id}`);
-                      toast.success("Đã xoá");
-                      refresh();
-                    }}
-                    trigger={(openDialog) => (
-                      <Button variant="ghost" size="icon" onClick={openDialog}>
-                        <Trash2 />
-                      </Button>
-                    )}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {data && data.items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} className="text-muted-foreground py-8 text-center">
-                  Chưa có địa điểm nào
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      {data && data.total > data.items.length && (
-        <p className="text-muted-foreground mt-3 text-sm">
-          Hiển thị {data.items.length}/{data.total} địa điểm. Gõ tên để thu hẹp danh sách.
-        </p>
-      )}
-
+      <DataTable
+        rows={data?.items}
+        loading={isLoading}
+        columns={columns}
+        rowKey={(p) => p.id}
+        onOpen={openEdit}
+        actions={(p) => [
+          { label: "Sửa", icon: Pencil, onSelect: () => openEdit(p) },
+          { label: "Xoá", icon: Trash2, destructive: true, onSelect: () => setToDelete(p) },
+        ]}
+        empty={
+          list.hasFilters ? (
+            "Không có địa điểm nào khớp."
+          ) : (
+            <>
+              Chưa có địa điểm nào.{" "}
+              <Button variant="link" className="h-auto p-0" onClick={openCreate}>
+                Thêm địa điểm đầu tiên
+              </Button>
+            </>
+          )
+        }
+      />
+      <ListFooter page={list.page} pageSize={PAGE_SIZE} total={data?.total} onPage={list.setPage} />
+      <DeleteDialog
+        open={!!toDelete}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title={`Xoá địa điểm "${toDelete?.name}"?`}
+        description="Không xoá được nếu còn nhân vật, sự kiện hoặc địa điểm con đang dùng nơi này."
+        onConfirm={async () => {
+          await api.del(`/places/${toDelete!.id}`);
+          toast.success("Đã xoá địa điểm");
+          refresh();
+        }}
+      />
       <FormSheet
         open={open}
         onOpenChange={setOpen}
@@ -194,6 +198,24 @@ export function Places() {
             exclude={editingId ?? undefined}
             onChange={(id, name) => setForm({ ...form, parentId: id, parentName: name })}
           />
+        </Field>
+        <Field label="Loại địa điểm">
+          <Select
+            value={form.placeType || "__none__"}
+            onValueChange={(v) => setForm({ ...form, placeType: v === "__none__" ? "" : v })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Chưa phân loại</SelectItem>
+              {placeTypes.map(([code, label]) => (
+                <SelectItem key={code} value={code}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Vĩ độ" hint="Từ -90 đến 90">

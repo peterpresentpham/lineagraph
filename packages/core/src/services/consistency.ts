@@ -14,14 +14,16 @@ export type ConsistencyCheck =
   | "death_before_birth"
   | "tenure_ends_before_start"
   | "overlapping_tenures"
-  | "node_without_source";
+  | "node_without_source"
+  | "event_without_participants"
+  | "participant_outside_lifespan";
 
 export type ConsistencyIssue = {
   check: ConsistencyCheck;
   severity: ConsistencySeverity;
   message: string;
   /** The people or polities involved, so the admin can open them. */
-  nodes: { id: string; kind: "person" | "polity"; name: string }[];
+  nodes: { id: string; kind: "person" | "polity" | "event"; name: string }[];
 };
 
 export type ConsistencyReport = {
@@ -35,7 +37,7 @@ const MAX_PER_CHECK = 100;
 // A child can be born after the father's death (about nine months), but not much later.
 const GESTATION_DAYS = 300;
 
-type NodeCell = { id: string; kind: "person" | "polity"; name: string };
+type NodeCell = { id: string; kind: "person" | "polity" | "event"; name: string };
 type Row = { total: number; nodes: NodeCell[]; detail?: string | null };
 
 // Every check returns one row per problem with its involved nodes as JSON, plus the total count of
@@ -123,10 +125,19 @@ async function findAncestorCycles(): Promise<Row[]> {
 }
 
 export async function runConsistencyCheck(): Promise<ConsistencyReport> {
-  const [cycles, parentAfterChild, parentDied, deathBeforeBirth, tenureOrder, overlaps, unsourced] =
-    await Promise.all([
-      findAncestorCycles(),
-      run(sql`
+  const [
+    cycles,
+    parentAfterChild,
+    parentDied,
+    deathBeforeBirth,
+    tenureOrder,
+    overlaps,
+    unsourced,
+    emptyEvents,
+    outsideLifespan,
+  ] = await Promise.all([
+    findAncestorCycles(),
+    run(sql`
         with bad as (
           select p.id pid, p.kind pkind, pm.name pname, c.id cid, c.kind ckind, cm.name cname
           from kg.relation r
@@ -144,7 +155,7 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
                  jsonb_build_object('id', pid, 'kind', pkind, 'name', pname),
                  jsonb_build_object('id', cid, 'kind', ckind, 'name', cname)) as nodes
         from bad order by pname limit ${MAX_PER_CHECK}`),
-      run(sql`
+    run(sql`
         with bad as (
           select p.id pid, p.kind pkind, pm.name pname, c.id cid, c.kind ckind, cm.name cname
           from kg.relation r
@@ -163,7 +174,7 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
                  jsonb_build_object('id', pid, 'kind', pkind, 'name', pname),
                  jsonb_build_object('id', cid, 'kind', ckind, 'name', cname)) as nodes
         from bad order by pname limit ${MAX_PER_CHECK}`),
-      run(sql`
+    run(sql`
         with bad as (
           select n.id, n.kind, pn.name
           from history.person p
@@ -177,7 +188,7 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
         select (select count(*)::int from bad) as total,
                jsonb_build_array(${nodeJson("bad", "bad.name")}) as nodes
         from bad order by bad.name limit ${MAX_PER_CHECK}`),
-      run(sql`
+    run(sql`
         with bad as (
           select n.id, n.kind, pn.name, q.name qname, q.id qid, q.kind qkind
           from history.tenure t
@@ -195,8 +206,8 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
                     else jsonb_build_array(${nodeJson("bad", "bad.name")},
                       jsonb_build_object('id', bad.qid, 'kind', bad.qkind, 'name', bad.qname)) end as nodes
         from bad order by bad.name limit ${MAX_PER_CHECK}`),
-      // Two people holding the same sovereign office of the same polity over the same time.
-      run(sql`
+    // Two people holding the same sovereign office of the same polity over the same time.
+    run(sql`
         with bad as (
           select a.person_id aid, am.name aname, b.person_id bid, bm.name bname,
                  q.id qid, qm.name qname, a.office_type
@@ -215,6 +226,7 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
           join kg.name bm on bm.node_id = b.person_id and bm.is_primary
           join kg.name qm on qm.node_id = q.id and qm.is_primary
           where not a.disputed and not b.disputed
+            and a.state = 'accepted' and b.state = 'accepted'
             and asd.earliest_jdn < bed.latest_jdn and bsd.earliest_jdn < aed.latest_jdn
             -- Reigns that merely share the changeover year are not an overlap.
             and asd.latest_jdn < bed.earliest_jdn and bsd.latest_jdn < aed.earliest_jdn)
@@ -225,14 +237,14 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
                  jsonb_build_object('id', qid, 'kind', 'polity', 'name', qname)) as nodes,
                office_type as detail
         from bad order by qname limit ${MAX_PER_CHECK}`),
-      // Facts with no citation at all: people and polities (the relationship and tenure facts hang
-      // off them, so listing the nodes is enough to act on).
-      run(sql`
+    // Facts with no citation at all: people and polities (the relationship and tenure facts hang
+    // off them, so listing the nodes is enough to act on).
+    run(sql`
         with bad as (
           select n.id, n.kind, pn.name
           from kg.node n
           join kg.name pn on pn.node_id = n.id and pn.is_primary
-          where n.deleted_at is null and n.kind in ('person', 'polity')
+          where n.deleted_at is null and n.kind in ('person', 'polity', 'event')
             and not exists (
               select 1 from kg.citation c where c.subject_id = n.id
                 or c.subject_id in (select r.id from kg.relation r where n.id in (r.from_id, r.to_id))
@@ -240,7 +252,43 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
         select (select count(*)::int from bad) as total,
                jsonb_build_array(${nodeJson("bad", "bad.name")}) as nodes
         from bad order by bad.name limit ${MAX_PER_CHECK}`),
-    ]);
+    // An event nobody took part in says little: it is an empty shell until someone is named.
+    run(sql`
+        with bad as (
+          select n.id, n.kind, en.name
+          from kg.node n
+          join history.event e on e.id = n.id
+          join kg.name en on en.node_id = n.id and en.is_primary
+          where n.deleted_at is null
+            and not exists (select 1 from history.event_participant ep where ep.event_id = e.id))
+        select (select count(*)::int from bad) as total,
+               jsonb_build_array(${nodeJson("bad", "bad.name")}) as nodes
+        from bad order by bad.name limit ${MAX_PER_CHECK}`),
+    // A person who died before the event began, or was born after it ended, cannot have taken
+    // part in it (people are only checked when both dates are known).
+    run(sql`
+        with bad as (
+          select en.id eid, en.kind ekind, em.name ename, pn.id pid, pn.kind pkind, pm.name pname
+          from history.event e
+          join kg.node en on en.id = e.id and en.deleted_at is null
+          join kg.name em on em.node_id = en.id and em.is_primary
+          join history.event_participant ep on ep.event_id = e.id
+          join kg.node pn on pn.id = ep.node_id and pn.deleted_at is null and pn.kind = 'person'
+          join kg.name pm on pm.node_id = pn.id and pm.is_primary
+          left join kg.fuzzy_date es on es.id = e.start_id
+          left join kg.fuzzy_date ee on ee.id = coalesce(e.end_id, e.start_id)
+          left join history.person_date b on b.person_id = pn.id and b.kind = 'birth' and b.is_preferred
+          left join kg.fuzzy_date bd on bd.id = b.date_id
+          left join history.person_date d on d.person_id = pn.id and d.kind = 'death' and d.is_preferred
+          left join kg.fuzzy_date dd on dd.id = d.date_id
+          where ((dd.latest_jdn is not null and es.earliest_jdn is not null and dd.latest_jdn < es.earliest_jdn)
+              or (bd.earliest_jdn is not null and ee.latest_jdn is not null and bd.earliest_jdn > ee.latest_jdn)))
+        select (select count(*)::int from bad) as total,
+               jsonb_build_array(
+                 jsonb_build_object('id', pid, 'kind', pkind, 'name', pname),
+                 jsonb_build_object('id', eid, 'kind', ekind, 'name', ename)) as nodes
+        from bad order by ename limit ${MAX_PER_CHECK}`),
+  ]);
 
   const counts: ConsistencyReport["counts"] = {
     ancestor_cycle: cycles[0]?.total ?? 0,
@@ -250,6 +298,8 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
     tenure_ends_before_start: tenureOrder[0]?.total ?? 0,
     overlapping_tenures: overlaps[0]?.total ?? 0,
     node_without_source: unsourced[0]?.total ?? 0,
+    event_without_participants: emptyEvents[0]?.total ?? 0,
+    participant_outside_lifespan: outsideLifespan[0]?.total ?? 0,
   };
 
   const issues: ConsistencyIssue[] = [];
@@ -299,6 +349,18 @@ export async function runConsistencyCheck(): Promise<ConsistencyReport> {
     "node_without_source",
     "info",
     (r) => `${r.nodes[0]!.name} chưa có nguồn trích dẫn nào`,
+  );
+  add(
+    emptyEvents,
+    "event_without_participants",
+    "warning",
+    (r) => `Sự kiện ${r.nodes[0]!.name} chưa có người hoặc chính thể tham gia`,
+  );
+  add(
+    outsideLifespan,
+    "participant_outside_lifespan",
+    "warning",
+    (r) => `${r.nodes[0]!.name} không còn sống vào thời điểm sự kiện ${r.nodes[1]!.name}`,
   );
   return { generatedAt: new Date().toISOString(), counts, issues };
 }

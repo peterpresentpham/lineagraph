@@ -67,7 +67,7 @@ async function loadGraphDataUncached() {
           from history.tenure t
           join kg.node p on p.id = t.person_id and p.deleted_at is null
           join kg.node q on q.id = t.polity_id and q.deleted_at is null
-          where t.polity_id is not null`,
+          where t.polity_id is not null and t.state = 'accepted'`,
     ),
     db.execute<{ id: string; sex: Sex; birth_edtf: string | null }>(
       sql`select p.id, p.sex, bd.edtf as birth_edtf
@@ -428,7 +428,7 @@ async function fetchLinkRows(
             left join kg.label l on l.namespace = 'office_type' and l.code = t.office_type and l.language = ${LABEL_LANGUAGE}
             join kg.node p on p.id = t.person_id and p.deleted_at is null
             join kg.node q on q.id = t.polity_id and q.deleted_at is null
-            where t.polity_id is not null and ${touchTenure}
+            where t.polity_id is not null and t.state = 'accepted' and ${touchTenure}
               ${opts.includeDisputed === false ? sql`and not t.disputed` : sql``}`,
       )
     : [];
@@ -568,7 +568,7 @@ export async function getPolityGraph(
         from history.tenure t
         left join kg.fuzzy_date sd on sd.id = t.start_id
         left join kg.fuzzy_date ed on ed.id = t.end_id
-        where t.polity_id = ${polity.id}::uuid`,
+        where t.polity_id = ${polity.id}::uuid and t.state = 'accepted'`,
   );
   for (const t of tenureRows) {
     members.add(t.person_id);

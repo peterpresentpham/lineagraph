@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { X } from "lucide-react";
-import { Input } from "@lineagraph/ui";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, X } from "lucide-react";
+import { Input, toast } from "@lineagraph/ui";
 import { api } from "../lib/api";
+import { errorMessage } from "../lib/hooks";
 import type { PlaceSummary } from "../lib/types";
 
 type Props = {
@@ -23,6 +24,7 @@ export function PlacePicker({
   exclude,
   placeholder = "Gõ tên địa điểm để tìm...",
 }: Props) {
+  const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<string | null | undefined>(selectedName);
   const [open, setOpen] = useState(false);
@@ -32,6 +34,24 @@ export function PlacePicker({
     enabled: open,
     queryFn: () => api.get<{ items: PlaceSummary[] }>(`/places?limit=8&q=${encodeURIComponent(q)}`),
   });
+
+  // A place that is not in the list yet is created from the typed name and selected.
+  const create = async () => {
+    const name = q.trim();
+    if (!name) return;
+    try {
+      const { id } = await api.post<{ id: string }>("/places", { name });
+      queryClient.invalidateQueries({ queryKey: ["places"] });
+      queryClient.invalidateQueries({ queryKey: ["place-picker"] });
+      toast.success(`Đã tạo địa điểm "${name}"`);
+      setPicked(name);
+      setQ("");
+      setOpen(false);
+      onChange(id, name);
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  };
 
   if (value && (picked || selectedName)) {
     return (
@@ -86,6 +106,19 @@ export function PlacePicker({
             ))
           ) : (
             <div className="text-muted-foreground px-3 py-2 text-sm">Không tìm thấy</div>
+          )}
+          {q.trim().length >= 2 && (
+            <button
+              type="button"
+              className="hover:bg-muted flex w-full items-center gap-2 border-t px-3 py-2 text-left text-sm font-medium"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                void create();
+              }}
+            >
+              <Plus className="size-4" />
+              Tạo địa điểm “{q.trim()}”
+            </button>
           )}
         </div>
       )}

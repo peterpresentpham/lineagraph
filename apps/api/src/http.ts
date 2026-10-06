@@ -26,6 +26,13 @@ export const publicCache =
 export const param = (req: Request, name: string) => String(req.params[name]);
 
 /** Optional integer query value: absent -> undefined, anything that is not an integer -> 400. */
+/** A query parameter that is a plain string (the first one if repeated), or undefined. */
+export const strQuery = (value: unknown): string | undefined =>
+  typeof value === "string" && value !== "" ? value : undefined;
+
+/** A flag such as `?noSource=1`. */
+export const flagQuery = (value: unknown): boolean => value === "1" || value === "true";
+
 export function intQuery(value: unknown, name: string): number | undefined {
   if (value === undefined || value === "") return undefined;
   const n = typeof value === "string" ? Number(value) : NaN;

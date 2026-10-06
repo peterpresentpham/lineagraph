@@ -14,6 +14,8 @@ export * from "./services/persons";
 export * from "./services/polities";
 export * from "./services/tenures";
 export * from "./services/places";
+export * from "./services/events";
+export { restoreNode } from "./services/node";
 export * from "./services/relationships";
 export * from "./services/relationTypes";
 export * from "./services/graph";

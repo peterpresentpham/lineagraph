@@ -43,6 +43,8 @@ export type NodeRelation = {
   label: string | null;
   note: string | null;
   disputed: boolean;
+  disputeNote: string | null;
+  confidence: number | null;
   start: DateValue | null;
   end: DateValue | null;
 };
@@ -65,6 +67,7 @@ export type PersonDetail = PersonSummary & {
     start: DateValue | null;
     end: DateValue | null;
     disputed: boolean;
+    state: string;
   }[];
 };
 
@@ -83,6 +86,7 @@ export type PolityDetail = PolitySummary & {
     end: DateValue | null;
     seq: number | null;
     disputed: boolean;
+    state: string;
     eras: string[];
   }[];
 };
@@ -144,6 +148,7 @@ export type Citation = {
   locator: string | null;
   quote: string | null;
   confidence: number;
+  stance: "supports" | "disputes" | "mentions";
   source: { id: string; title: string; author: string | null; url: string | null };
 };
 
@@ -162,4 +167,33 @@ export type TimelineEntry = {
   start: DateValue | null;
   end: DateValue | null;
   detail: string | null;
+};
+
+export type EventSummary = {
+  id: string;
+  slug: string;
+  name: string;
+  eventType: string;
+  eventTypeLabel: string;
+  start: DateValue | null;
+  end: DateValue | null;
+  place: { id: string; name: string } | null;
+  participantCount: number;
+};
+
+export type EventDetail = EventSummary & {
+  summary: string | null;
+  outcome: string | null;
+  body: string | null;
+  names: NameEntry[];
+  participants: {
+    id: string;
+    node: NodeRef;
+    role: string;
+    roleLabel: string;
+    side: number | null;
+    note: string | null;
+  }[];
+  parent: EventSummary | null;
+  children: EventSummary[];
 };

@@ -9,13 +9,14 @@ type PlaceRow = {
   name: string;
   parent_id: string | null;
   parent_name: string | null;
+  place_type: string | null;
   latitude: number | null;
   longitude: number | null;
   note: string | null;
 };
 
 const placeSelect = sql`
-  select p.id, p.name, p.parent_id, pp.name as parent_name, p.latitude, p.longitude, p.note
+  select p.id, p.name, p.parent_id, pp.name as parent_name, p.place_type, p.latitude, p.longitude, p.note
   from history.place p
   left join history.place pp on pp.id = p.parent_id`;
 
@@ -23,6 +24,7 @@ const placeView = (r: PlaceRow) => ({
   id: r.id,
   name: r.name,
   parent: r.parent_id ? { id: r.parent_id, name: r.parent_name! } : null,
+  placeType: r.place_type,
   latitude: r.latitude,
   longitude: r.longitude,
   note: r.note,
@@ -64,8 +66,8 @@ async function assertNoParentLoop(id: string, parentId: string) {
 
 export async function createPlace(input: PlaceInput) {
   const [row] = await db.execute<{ id: string }>(
-    sql`insert into history.place (name, name_normalized, parent_id, latitude, longitude, note)
-        values (${input.name}, ${normalizeText(input.name)}, ${input.parentId ?? null}::uuid,
+    sql`insert into history.place (name, name_normalized, place_type, parent_id, latitude, longitude, note)
+        values (${input.name}, ${normalizeText(input.name)}, ${input.placeType}, ${input.parentId ?? null}::uuid,
                 ${input.latitude ?? null}, ${input.longitude ?? null}, ${input.note})
         returning id`,
   );
@@ -76,7 +78,7 @@ export async function updatePlace(id: string, input: PlaceInput) {
   if (input.parentId) await assertNoParentLoop(id, input.parentId);
   const rows = await db.execute<{ id: string }>(
     sql`update history.place set name = ${input.name}, name_normalized = ${normalizeText(input.name)},
-          parent_id = ${input.parentId ?? null}::uuid, latitude = ${input.latitude ?? null},
+          place_type = ${input.placeType}, parent_id = ${input.parentId ?? null}::uuid, latitude = ${input.latitude ?? null},
           longitude = ${input.longitude ?? null}, note = ${input.note}
         where id = ${id}::uuid returning id`,
   );
@@ -88,17 +90,19 @@ export async function deletePlace(id: string) {
     found: boolean;
     people: number;
     children: number;
+    events: number;
     deleted: number;
   }>(
     sql`with used as (
           select
             (select count(*)::int from history.person where birth_place_id = ${id}::uuid or death_place_id = ${id}::uuid) as people,
-            (select count(*)::int from history.place where parent_id = ${id}::uuid) as children),
+            (select count(*)::int from history.place where parent_id = ${id}::uuid) as children,
+            (select count(*)::int from history.event where place_id = ${id}::uuid) as events),
         gone as (
           delete from history.place where id = ${id}::uuid
-            and (select people + children from used) = 0 returning id)
+            and (select people + children + events from used) = 0 returning id)
         select exists (select 1 from history.place where id = ${id}::uuid) as found,
-               used.people, used.children, (select count(*)::int from gone) as deleted
+               used.people, used.children, used.events, (select count(*)::int from gone) as deleted
         from used`,
   );
   if (r?.deleted) return;
@@ -106,6 +110,6 @@ export async function deletePlace(id: string) {
   if (!r?.found) throw notFound("địa điểm");
   throw new ServiceError(
     409,
-    `Còn ${r.people} nhân vật và ${r.children} địa điểm con dùng nơi này, hãy gỡ chúng trước`,
+    `Còn ${r.people} nhân vật, ${r.events} sự kiện và ${r.children} địa điểm con dùng nơi này, hãy gỡ chúng trước`,
   );
 }

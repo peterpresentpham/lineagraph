@@ -125,6 +125,12 @@ export const placeInput = z
     name: text(200).min(1, "Tên địa điểm không được để trống"),
     // The larger place this one lies in (a city's province).
     parentId: z.string().uuid().nullish(),
+    placeType: z
+      .string()
+      .trim()
+      .regex(/^[a-z][a-z0-9_]*$/, "Loại địa điểm chỉ gồm chữ thường, số, gạch dưới")
+      .nullish()
+      .transform((v) => v || null),
     latitude: z.number().min(-90).max(90).nullish(),
     longitude: z.number().min(-180).max(180).nullish(),
     note: optionalText(),
@@ -135,6 +141,51 @@ export const placeInput = z
     }
   });
 export type PlaceInput = z.infer<typeof placeInput>;
+
+export const eventParticipantInput = z.object({
+  nodeId: z.string().uuid("Chọn người hoặc chính thể tham gia"),
+  role: z.string().min(1, "Chọn vai trò"),
+  // Groups the sides of a war or treaty: 1 = one party, 2 = the other, ...
+  side: z.number().int().min(1).max(20).nullish(),
+  note: optionalText(500),
+});
+export type EventParticipantInput = z.infer<typeof eventParticipantInput>;
+
+export const eventInput = z
+  .object({
+    names,
+    eventType: z.string().min(1, "Chọn loại sự kiện"),
+    summary: optionalText(),
+    outcome: optionalText(2000),
+    body: optionalText(50000),
+    start: optionalDate,
+    end: optionalDate,
+    placeId: z.string().uuid().nullish(),
+    parentEventId: z.string().uuid().nullish(),
+    participants: z.array(eventParticipantInput).max(200).default([]),
+  })
+  .superRefine((e, ctx) => {
+    checkRange(
+      e.start,
+      e.end,
+      { from: ["start"], to: ["end"] },
+      "Ngày kết thúc không thể trước ngày bắt đầu",
+      ctx,
+    );
+    const seen = new Set<string>();
+    e.participants.forEach((p, i) => {
+      const key = `${p.nodeId}|${p.role}`;
+      if (seen.has(key)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["participants", i, "role"],
+          message: "Người này đã có vai trò đó trong sự kiện",
+        });
+      }
+      seen.add(key);
+    });
+  });
+export type EventInput = z.infer<typeof eventInput>;
 
 export const polityInput = z
   .object({
@@ -170,6 +221,10 @@ export const tenureInput = z
     end: optionalDate,
     seq: z.number().int().min(1, "Thứ tự phải từ 1 trở lên").nullish(),
     disputed: z.boolean().default(false),
+    // 1 (a guess) to 5 (well attested); `alternative` records a rival historian's version.
+    confidence: z.number().int().min(1).max(5).nullish(),
+    note: optionalText(),
+    state: z.enum(["accepted", "alternative"]).default("accepted"),
     eras: z
       .array(
         z.object({
@@ -211,6 +266,8 @@ export const relationshipInput = z
     label: optionalText(100),
     note: optionalText(),
     disputed: z.boolean().default(false),
+    disputeNote: optionalText(),
+    confidence: z.number().int().min(1).max(5).nullish(),
     // 1 (minor) to 5 (core): decides how early a graph view shows this link.
     // Left out on create, it starts from the relation type's default importance.
     importance: z.number().int().min(1).max(5).optional(),
@@ -267,12 +324,14 @@ export const sourceInput = z.object({
 export type SourceInput = z.infer<typeof sourceInput>;
 
 export const citationInput = z.object({
-  subjectTable: z.enum(["person", "polity", "tenure", "relation"]),
+  subjectTable: z.enum(["person", "polity", "tenure", "relation", "event"]),
   subjectId: z.string().uuid(),
   sourceId: z.string().uuid("Chọn nguồn"),
   locator: optionalText(200),
   quote: optionalText(),
   confidence: z.number().int().min(1).max(5).default(3),
+  // Whether the source backs the fact, disputes it, or only mentions it.
+  stance: z.enum(["supports", "disputes", "mentions"]).default("supports"),
 });
 export type CitationInput = z.infer<typeof citationInput>;
 

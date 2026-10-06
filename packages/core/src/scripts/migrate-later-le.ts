@@ -1342,6 +1342,7 @@ async function main() {
       locator: null,
       quote: null,
       confidence: 3,
+      stance: "supports",
     });
   }
 
@@ -1376,6 +1377,8 @@ async function main() {
       end: t.end ?? null,
       seq: t.seq ?? null,
       disputed: false,
+      note: null,
+      state: "accepted",
       eras: (t.eras ?? []).map((e) => ({
         name: e.name,
         start: e.start ?? null,
@@ -1398,6 +1401,7 @@ async function main() {
       label: null,
       note: r.note ?? null,
       disputed: false,
+      disputeNote: null,
       importance: 3,
       start: null,
       end: null,

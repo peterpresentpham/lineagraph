@@ -10,7 +10,7 @@ import {
   listPolities,
 } from "@lineagraph/core";
 import { z } from "zod";
-import { handle, intQuery, param } from "../http.js";
+import { flagQuery, handle, intQuery, param, strQuery } from "../http.js";
 
 // Public read routes for the web app — no login.
 export const graphRouter = Router();
@@ -21,6 +21,10 @@ graphRouter.get(
     res.json(
       await listPersons({
         q: typeof req.query.q === "string" ? req.query.q : undefined,
+        sex: strQuery(req.query.sex),
+        historicity: strQuery(req.query.historicity),
+        noSource: flagQuery(req.query.noSource),
+        sort: req.query.sort === "birth" ? "birth" : "name",
         limit: intQuery(req.query.limit, "limit"),
         offset: Math.max(intQuery(req.query.offset, "offset") ?? 0, 0),
       }),
@@ -51,6 +55,8 @@ graphRouter.get(
       await listPolities({
         q: typeof req.query.q === "string" ? req.query.q : undefined,
         type: typeof req.query.type === "string" ? req.query.type : undefined,
+        noSource: flagQuery(req.query.noSource),
+        sort: req.query.sort === "name" ? "name" : "date",
         limit: intQuery(req.query.limit, "limit"),
         offset: intQuery(req.query.offset, "offset"),
       }),

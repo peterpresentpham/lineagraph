@@ -5,7 +5,7 @@ import { notFound } from "../errors";
 import { node } from "../schema/kg";
 import type { PersonInput } from "../validation";
 import { dateInsert, parseDate, toRow } from "./dates";
-import { nameAttributeCtes, softDeleteNode, uniqueSlug } from "./node";
+import { nameAttributeCtes, softDeleteNode, uniqueSlug, withoutSource } from "./node";
 import { getNodeRelations } from "./relationships";
 import { likeContains, normalizeText } from "./text";
 import { LABEL_LANGUAGE } from "./labels";
@@ -53,16 +53,33 @@ const summarySelect = sql`
   left join kg.fuzzy_date dd on dd.id = d.date_id
   where n.deleted_at is null`;
 
-export async function listPersons(opts: { q?: string; limit?: number; offset?: number }) {
+export async function listPersons(opts: {
+  q?: string;
+  sex?: string;
+  historicity?: string;
+  /** Only people that have no source at all. */
+  noSource?: boolean;
+  sort?: "name" | "birth";
+  limit?: number;
+  offset?: number;
+}) {
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
   const offset = Math.max(opts.offset ?? 0, 0);
   const q = opts.q ? normalizeText(opts.q) : null;
-  const filter = q
-    ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${likeContains(q)})`
-    : sql``;
+  const filter = sql`${
+    q
+      ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${likeContains(q)})`
+      : sql``
+  } ${opts.sex ? sql`and p.sex = ${opts.sex}` : sql``} ${
+    opts.historicity ? sql`and p.historicity = ${opts.historicity}` : sql``
+  } ${opts.noSource ? withoutSource : sql``}`;
+  const order =
+    opts.sort === "birth"
+      ? sql`bd.earliest_jdn nulls last, pn.name_normalized`
+      : sql`pn.name_normalized`;
   const [rows, [{ count }]] = await Promise.all([
     db.execute<SummaryRow>(
-      sql`${summarySelect} ${filter} order by pn.name_normalized limit ${limit} offset ${offset}`,
+      sql`${summarySelect} ${filter} order by ${order} limit ${limit} offset ${offset}`,
     ),
     db.execute<{ count: number }>(
       sql`select count(*)::int as count from kg.node n join history.person p on p.id = n.id
@@ -158,9 +175,10 @@ export async function getPerson(slugOrId: string) {
         end_edtf: string | null;
         seq: number | null;
         disputed: boolean;
+        state: string;
       }>(
         sql`select t.id, t.polity_id, pn.slug as polity_slug, pm.name as polity_name, t.office_type,
-                   sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed
+                   sd.edtf as start_edtf, ed.edtf as end_edtf, t.seq, t.disputed, t.state
             from history.tenure t
             left join kg.node pn on pn.id = t.polity_id and pn.deleted_at is null
             left join kg.name pm on pm.node_id = pn.id and pm.is_primary
@@ -205,6 +223,7 @@ export async function getPerson(slugOrId: string) {
       start: parseDate(t.start_edtf),
       end: parseDate(t.end_edtf),
       disputed: t.disputed,
+      state: t.state,
     })),
   };
 }

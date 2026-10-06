@@ -214,4 +214,199 @@ describe.skipIf(!url)("services against a real database", () => {
       );
     });
   });
+  describe("events", () => {
+    const polity = async (name: string) => {
+      const p = await core.createPolity(
+        core.polityInput.parse({ names: names(name), polityType: "state" }),
+      );
+      created.polities.push(p.id);
+      return p;
+    };
+
+    it("stores an event with sides and replaces its participants in one statement", async () => {
+      const a = await polity("Test Bên Một");
+      const b = await polity("Test Bên Hai");
+      const general = await person("Test Tướng");
+      const input = (extra: object = {}) =>
+        core.eventInput.parse({
+          names: names("Test Trận Đánh"),
+          eventType: "battle",
+          start: { year: 1426, month: 10 },
+          participants: [
+            { nodeId: a.id, role: "belligerent", side: 1 },
+            { nodeId: b.id, role: "belligerent", side: 2 },
+            { nodeId: general.id, role: "commander", side: 1 },
+          ],
+          ...extra,
+        });
+      const e = await core.createEvent(input());
+      let got = await core.getEvent(e.id);
+      expect(got.participants).toHaveLength(3);
+      expect(got.participants[0]!.side).toBe(1);
+      expect(got.start?.label).toBe("10/1426");
+
+      // The same participants again: delete and insert in one statement must not collide.
+      await core.updateEvent(e.id, input({ outcome: "Bên một thắng" }));
+      got = await core.getEvent(e.id);
+      expect(got.outcome).toBe("Bên một thắng");
+      expect(got.participants).toHaveLength(3);
+
+      expect((await core.listEvents({ nodeId: general.id })).items.map((i) => i.id)).toEqual([
+        e.id,
+      ]);
+
+      // A person in a live event cannot be deleted; once the event is gone, they can.
+      await expect(core.deletePerson(general.id)).rejects.toMatchObject({ status: 409 });
+      await core.deleteEvent(e.id);
+      await expect(core.getEvent(e.id)).rejects.toMatchObject({ status: 404 });
+      await core.deletePerson(general.id);
+    });
+
+    it("nests events and refuses loops, unknown participants and duplicate roles", async () => {
+      const war = await core.createEvent(
+        core.eventInput.parse({ names: names("Test Chiến Tranh"), eventType: "war" }),
+      );
+      const battle = await core.createEvent(
+        core.eventInput.parse({
+          names: names("Test Trận Con"),
+          eventType: "battle",
+          parentEventId: war.id,
+        }),
+      );
+      expect((await core.getEvent(war.id)).children.map((c) => c.id)).toEqual([battle.id]);
+      await expect(core.deleteEvent(war.id)).rejects.toMatchObject({ status: 409 });
+      await expect(
+        core.updateEvent(
+          war.id,
+          core.eventInput.parse({
+            names: names("Test Chiến Tranh"),
+            eventType: "war",
+            parentEventId: battle.id,
+          }),
+        ),
+      ).rejects.toMatchObject({ status: 400 });
+      await expect(
+        core.createEvent(
+          core.eventInput.parse({
+            names: names("Test Ma"),
+            eventType: "battle",
+            participants: [{ nodeId: crypto.randomUUID(), role: "commander" }],
+          }),
+        ),
+      ).rejects.toMatchObject({ status: 400 });
+      await expect(
+        core.createEvent(
+          core.eventInput.parse({
+            names: names("Test Vai Sai"),
+            eventType: "battle",
+            participants: [{ nodeId: (await person("Test Người Vai Sai")).id, role: "nope" }],
+          }),
+        ),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(
+        core.eventInput.safeParse({
+          names: names("x"),
+          eventType: "battle",
+          participants: [{ nodeId: crypto.randomUUID(), role: "commander" }],
+        }).success,
+      ).toBe(true);
+      await core.deleteEvent(battle.id);
+      await core.deleteEvent(war.id);
+    });
+
+    it("reports events without participants and participants outside their lifespan", async () => {
+      const empty = await core.createEvent(
+        core.eventInput.parse({ names: names("Test Sự Kiện Rỗng"), eventType: "other" }),
+      );
+      const early = await person("Test Người Mất Sớm", {
+        birth: { year: 1300 },
+        death: { year: 1350 },
+      });
+      const late = await core.createEvent(
+        core.eventInput.parse({
+          names: names("Test Sự Kiện Muộn"),
+          eventType: "battle",
+          start: { year: 1400 },
+          participants: [{ nodeId: early.id, role: "commander" }],
+        }),
+      );
+      const report = await core.runConsistencyCheck();
+      expect(
+        report.issues.some(
+          (i) => i.check === "event_without_participants" && i.nodes[0]!.id === empty.id,
+        ),
+      ).toBe(true);
+      expect(
+        report.issues.some(
+          (i) => i.check === "participant_outside_lifespan" && i.nodes[1]!.id === late.id,
+        ),
+      ).toBe(true);
+      await core.deleteEvent(empty.id);
+      await core.deleteEvent(late.id);
+    });
+  });
+
+  it("keeps confidence and dispute notes on relations and alternative tenures", async () => {
+    const a = await person("Test Cha Tin Cậy");
+    const b = await person("Test Con Tin Cậy");
+    const r = await core.createRelationship(
+      core.relationshipInput.parse({
+        type: "parent_of",
+        fromId: a.id,
+        toId: b.id,
+        disputed: true,
+        disputeNote: "Hai sử gia ghi khác nhau",
+        confidence: 2,
+      }),
+    );
+    created.relations.push(r.id);
+    const got = await core.getRelationship(r.id);
+    expect(got.confidence).toBe(2);
+    expect(got.disputeNote).toBe("Hai sử gia ghi khác nhau");
+    expect(
+      core.relationshipInput.safeParse({
+        type: "parent_of",
+        fromId: a.id,
+        toId: b.id,
+        confidence: 9,
+      }).success,
+    ).toBe(false);
+  });
+  describe("admin lists", () => {
+    it("restores a deleted person with its citations and keeps its slug", async () => {
+      const p = await person("Test Người Hoàn Tác");
+      const source = await core.createSource(core.sourceInput.parse({ title: "Test Nguồn" }));
+      await core.createCitation(
+        core.citationInput.parse({ subjectTable: "person", subjectId: p.id, sourceId: source.id }),
+      );
+      await core.deletePerson(p.id);
+      await expect(core.getPerson(p.slug)).rejects.toMatchObject({ status: 404 });
+      await core.restoreNode(p.id, "person");
+      expect((await core.getPerson(p.slug)).name).toBe("Test Người Hoàn Tác");
+      expect(await core.listCitations("person", p.id)).toHaveLength(1);
+      // Restoring something that is not deleted (or the wrong kind) is a 404, not a silent no-op.
+      await expect(core.restoreNode(p.id, "person")).rejects.toMatchObject({ status: 404 });
+      await expect(core.restoreNode(p.id, "polity")).rejects.toMatchObject({ status: 404 });
+    });
+
+    it("filters people by sex, source and sorts by birth", async () => {
+      const early = await person("Test Lọc Sớm", { sex: "female", birth: { year: 1200 } });
+      const late = await person("Test Lọc Muộn", { sex: "female", birth: { year: 1500 } });
+      const source = await core.createSource(core.sourceInput.parse({ title: "Test Nguồn Lọc" }));
+      await core.createCitation(
+        core.citationInput.parse({
+          subjectTable: "person",
+          subjectId: late.id,
+          sourceId: source.id,
+        }),
+      );
+      const ids = async (opts: Parameters<typeof core.listPersons>[0]) =>
+        (await core.listPersons({ q: "Test Lọc", ...opts })).items.map((i) => i.id);
+      expect(await ids({ sort: "birth" })).toEqual([early.id, late.id]);
+      expect(await ids({ sex: "male" })).toEqual([]);
+      expect(await ids({ sex: "female", noSource: true })).toEqual([early.id]);
+      const total = (await core.listPersons({ q: "Test Lọc", noSource: true })).total;
+      expect(total).toBe(1);
+    });
+  });
 });
