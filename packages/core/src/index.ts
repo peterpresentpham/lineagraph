@@ -1,6 +1,8 @@
 export * as kgSchema from "./schema/kg";
 export * as historySchema from "./schema/history";
 export * as learningSchema from "./schema/learning";
+export * from "./services/audit";
+export * from "./services/cache";
 export * from "./services/consistency";
 export * from "./services/questions";
 export * from "./services/closure";
@@ -11,6 +13,7 @@ export * from "./validation";
 export * from "./services/persons";
 export * from "./services/polities";
 export * from "./services/tenures";
+export * from "./services/places";
 export * from "./services/relationships";
 export * from "./services/relationTypes";
 export * from "./services/graph";

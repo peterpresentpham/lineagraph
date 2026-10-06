@@ -3,6 +3,8 @@ import { db } from "../db";
 import { ServiceError, notFound } from "../errors";
 import { label, relationType } from "../schema/kg";
 import type { RelationTypeInput } from "../validation";
+import { TYPES_CACHE_KEY, invalidate } from "./cache";
+import { LABEL_LANGUAGE } from "./labels";
 
 export type RelationTypeView = {
   code: string;
@@ -34,7 +36,7 @@ export async function listRelationTypes(): Promise<RelationTypeView[]> {
     sql`select t.code, l.text as label, t.category, t.inverse_code, t.is_symmetric, t.is_primary, t.is_acyclic,
                t.default_importance, t.subject_kinds, t.object_kinds
         from kg.relation_type t
-        left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = 'vi'
+        left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = ${LABEL_LANGUAGE}
         order by t.category, t.is_primary desc, t.code`,
   );
   const labels = new Map(rows.map((r) => [r.code, r.label ?? r.code]));
@@ -56,7 +58,7 @@ export async function listRelationTypes(): Promise<RelationTypeView[]> {
 async function setLabel(code: string, text: string) {
   await db
     .insert(label)
-    .values({ namespace: "relation_type", code, language: "vi", text })
+    .values({ namespace: "relation_type", code, language: LABEL_LANGUAGE, text })
     .onConflictDoUpdate({ target: [label.namespace, label.code, label.language], set: { text } });
 }
 
@@ -95,6 +97,7 @@ export async function createRelationType(input: RelationTypeInput) {
   });
   await setLabel(input.code, input.label);
   if (!symmetric) await setLabel(input.inverseCode!, input.inverseLabel!);
+  invalidate(TYPES_CACHE_KEY);
 }
 
 // Only labels, category and the acyclic flag can change: the code and kinds are referenced by data.
@@ -126,6 +129,7 @@ export async function updateRelationType(
       ...(input.isAcyclic !== undefined && row.isPrimary ? { isAcyclic: input.isAcyclic } : {}),
     })
     .where(eq(relationType.code, code));
+  invalidate(TYPES_CACHE_KEY);
 }
 
 // Deletes a type (and its inverse). Fails with a foreign-key error while relationships still use it.
@@ -145,4 +149,5 @@ export async function deleteRelationType(code: string) {
     );
     for (const c of codes) await tx.execute(sql`delete from kg.relation_type where code = ${c}`);
   });
+  invalidate(TYPES_CACHE_KEY);
 }

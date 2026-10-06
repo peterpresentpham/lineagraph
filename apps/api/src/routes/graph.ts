@@ -10,7 +10,7 @@ import {
   listPolities,
 } from "@lineagraph/core";
 import { z } from "zod";
-import { handle, param } from "../http.js";
+import { handle, intQuery, param } from "../http.js";
 
 // Public read routes for the web app — no login.
 export const graphRouter = Router();
@@ -21,8 +21,8 @@ graphRouter.get(
     res.json(
       await listPersons({
         q: typeof req.query.q === "string" ? req.query.q : undefined,
-        limit: req.query.limit ? Number(req.query.limit) : undefined,
-        offset: req.query.offset ? Number(req.query.offset) : undefined,
+        limit: intQuery(req.query.limit, "limit"),
+        offset: Math.max(intQuery(req.query.offset, "offset") ?? 0, 0),
       }),
     );
   }),
@@ -38,7 +38,7 @@ for (const direction of ["ancestors", "descendants"] as const) {
     `/persons/:slug/${direction}`,
     handle(async (req, res) => {
       const person = await getPerson(param(req, "slug"));
-      const depth = req.query.depth ? Number(req.query.depth) : undefined;
+      const depth = intQuery(req.query.depth, "depth");
       res.json(await getLineage(person.id, direction, depth));
     }),
   );
@@ -47,7 +47,14 @@ for (const direction of ["ancestors", "descendants"] as const) {
 graphRouter.get(
   "/polities",
   handle(async (req, res) => {
-    res.json(await listPolities({ q: typeof req.query.q === "string" ? req.query.q : undefined }));
+    res.json(
+      await listPolities({
+        q: typeof req.query.q === "string" ? req.query.q : undefined,
+        type: typeof req.query.type === "string" ? req.query.type : undefined,
+        limit: intQuery(req.query.limit, "limit"),
+        offset: intQuery(req.query.offset, "offset"),
+      }),
+    );
   }),
 );
 
@@ -65,11 +72,11 @@ graphRouter.get(
   handle(async (req, res) => {
     res.json(
       await getEgoGraph(param(req, "slug"), {
-        depth: req.query.depth ? Number(req.query.depth) : undefined,
-        limit: req.query.limit ? Number(req.query.limit) : undefined,
+        depth: intQuery(req.query.depth, "depth"),
+        limit: intQuery(req.query.limit, "limit"),
         types: csv(req.query.types),
         includeDisputed: req.query.disputed !== "0",
-        minImportance: req.query.minImportance ? Number(req.query.minImportance) : undefined,
+        minImportance: intQuery(req.query.minImportance, "minImportance"),
       }),
     );
   }),

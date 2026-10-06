@@ -1,5 +1,7 @@
 # Sơ đồ quan hệ của cơ sở dữ liệu
 
+> Địa điểm: bảng `history.place` (phân cấp qua `parent_id`, toạ độ tuỳ chọn); nhân vật trỏ tới nó bằng `birth_place_id` và `death_place_id`. Sự kiện chưa có bảng riêng.
+
 Nguồn sự thật là các file schema Drizzle trong `packages/core/src/schema/` (`kg.ts`, `history.ts`, `learning.ts`, `auth.ts`). File này chỉ là bản vẽ để đọc nhanh; khi đổi schema, hãy cập nhật lại cho khớp.
 
 Postgres chia làm bốn schema:
@@ -103,8 +105,12 @@ Quy ước của `kg.relation`:
 - Loại đối xứng (`spouse_of`, `friend_of`, `ally_of`) lưu một lần, nút có id nhỏ hơn đứng trước.
 - Loại có `is_acyclic` (cha mẹ–con) được kiểm tra vòng lặp bằng recursive CTE trước khi ghi.
 - `CHECK (from_id <> to_id)`: không nối một nút với chính nó.
-- `importance` (1 đến 5, `CHECK`): độ quan trọng của quan hệ. Sơ đồ chỉ đi theo các liên kết từ ngưỡng trở lên khi mở (chính thể: 4, nhân vật: 3); bấm "Tải thêm" hạ ngưỡng từng bậc. Liên kết chức vụ lấy mức từ `history.office_type.importance` (Hoàng đế/Vua/Công/Chúa là 5, Nhiếp chính và Tể tướng là 3, còn lại 2). Mặc định theo loại: kế vị và sáng lập 5, cha mẹ-con 3, bạn bè/đối thủ 2, còn lại 3; admin sửa được từng quan hệ.
-- Unique index biểu thức `relation_unique_key` chặn trùng lặp (thêm bằng SQL thô trong migration 0003).
+- `importance` (1 đến 5, `CHECK`): độ quan trọng riêng của từng quan hệ. Sơ đồ mở ra chỉ với các liên kết mức 5 (kế vị, sáng lập, chức vụ đứng đầu); bấm "Tải thêm" hạ ngưỡng từng bậc. Liên kết chức vụ lấy mức từ `history.office_type.importance` (Hoàng đế/Vua/Công/Chúa là 5, Nhiếp chính và Tể tướng là 3, còn lại 2).
+- `kg.relation_type.default_importance`: điểm khởi đầu của quan hệ **mới** thuộc loại đó (kế vị, sáng lập 5; chinh phục, tách ra 4; cha mẹ-con, vợ chồng, anh em, chư hầu, đồng minh 3; thầy trò, bạn bè, đối thủ 2). Chỉ là giá trị mặc định lúc tạo: mỗi quan hệ vẫn lưu điểm riêng, đổi điểm mặc định không động tới quan hệ đã có.
+- Unique index `relation_unique_key` (loại, hai đầu, biến thể) chặn trùng lặp; `kg.name` chỉ có một tên chính mỗi nút (kiểm tra ở `validation.ts`); `kg.citation` không lặp (nút, nguồn, vị trí trong nguồn).
+- `kg.name.name_normalized` có chỉ mục GIN trigram (`pg_trgm`) cho tìm kiếm theo chuỗi con; chữ không phải Latin được chuyển tự (`transliteration`) khi chuẩn hoá.
+- Ngày (`kg.fuzzy_date`): năm theo cách sử học (1 TCN là -1, không có năm 0), `earliest_jdn`/`latest_jdn` là số ngày Julius để sắp xếp, `edtf` có hậu tố `j` cho lịch Julius và `~` cho ngày xấp xỉ.
+- Mọi thao tác ghi của admin được ghi vào `kg.audit_log` (ai, bảng nào, dòng nào, nội dung gửi lên).
 - Nhãn tiếng Việt của loại quan hệ nằm trong `kg.label`, không nằm trong `relation_type`.
 
 ## 2. Lớp miền lịch sử
@@ -311,6 +317,5 @@ Những bảng chỉ có cột `code` (và vài cột phụ) dùng làm khoá ng
 - `kg.collection.parent_id`
 - `kg.node.merged_into`
 - `kg.name.valid_from`, `kg.name.valid_to` (lẽ ra trỏ `kg.fuzzy_date`)
-- `history.person_date.place_id` (chưa có bảng địa danh)
 - `learning.card.relation_id` (lẽ ra trỏ `kg.relation`)
 - `kg.citation.subject_id` (đa hình, cố ý không có FK)

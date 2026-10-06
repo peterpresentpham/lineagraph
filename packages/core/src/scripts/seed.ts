@@ -48,6 +48,27 @@ const successionModes = {
 // Relation types. Each inverse pair is two rows; only the primary one is ever stored on a
 // relationship (the other is derived when reading), see kg.relation_type.is_primary.
 type Kind = "person" | "polity";
+
+// Starting importance (1 minor - 5 core) a new relationship of each type gets; the admin can change
+// it per type later. Succession and founding are the spine of a lineage graph, then conquest and
+// splits; teachers, friends and rivals are minor; everything else keeps the default of 3.
+const defaultImportance: Record<string, number> = {
+  successor_of: 5,
+  predecessor_of: 5,
+  succeeds: 5,
+  succeeded_by: 5,
+  founder_of: 5,
+  founded_by: 5,
+  conquered: 4,
+  conquered_by: 4,
+  split_from: 4,
+  split_into: 4,
+  teacher_of: 2,
+  student_of: 2,
+  rival_of: 2,
+  friend_of: 2,
+};
+
 const relationTypes: {
   code: string;
   label: string;
@@ -343,9 +364,11 @@ for (const r of relationTypes) {
     subjectKinds: r.subjects,
     objectKinds: r.objects,
   };
+  // The default importance is only set when the type is first created, so re-running the seed
+  // does not undo what the admin changed on the relation types page.
   await db
     .insert(kg.relationType)
-    .values(row)
+    .values({ ...row, defaultImportance: defaultImportance[r.code] ?? 3 })
     .onConflictDoUpdate({ target: kg.relationType.code, set: row });
 }
 await db

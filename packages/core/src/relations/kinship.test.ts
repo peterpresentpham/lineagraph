@@ -186,3 +186,27 @@ describe("edge cases", () => {
     expect(describeKinship("loi", "a", people, step)).toBeNull();
   });
 });
+
+describe("neutral terms", () => {
+  const neutral = { terms: "neutral" as const };
+
+  it("drops nội / ngoại and the age-based sibling words", () => {
+    expect(describeKinship("loi", "nhan-tong", people, links, neutral)).toMatchObject({
+      aIs: "ông",
+      bIs: "cháu",
+    });
+    const siblings = describeKinship("nhan-tong", "thanh-tong", people, links, neutral)!;
+    expect(siblings.aIs).toBe("anh/em trai");
+    expect(siblings.bIs).toBe("anh/em trai");
+  });
+
+  it("names an uncle by whose brother he is, not by a special word", () => {
+    const uncle = describeKinship("p-younger", "a", people, links, neutral);
+    expect(uncle?.aIs).toBe("anh/em trai của cha");
+  });
+
+  it("leaves the Vietnamese default unchanged", () => {
+    const uncle = describeKinship("p-younger", "a", people, links);
+    expect(uncle?.aIs).toBe("chú");
+  });
+});

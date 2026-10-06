@@ -2,4 +2,3 @@
 // import { EgoGraph } from "@lineagraph/ui/graph".
 export * from "./types";
 export { EgoGraph } from "./EgoGraph";
-export { RelationGraph } from "./RelationGraph";

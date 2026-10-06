@@ -3,9 +3,11 @@ import { NavLink, Navigate, Outlet } from "react-router-dom";
 import {
   BookOpen,
   GitFork,
+  ShieldCheck,
   Landmark,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Network,
   PanelLeftClose,
   PanelLeftOpen,
@@ -19,9 +21,11 @@ const nav = [
   { to: "/", label: "Tổng quan", icon: LayoutDashboard, end: true },
   { to: "/persons", label: "Nhân vật", icon: Users },
   { to: "/polities", label: "Chính thể", icon: Landmark },
+  { to: "/places", label: "Địa điểm", icon: MapPin },
   { to: "/relationships", label: "Quan hệ", icon: Network },
   { to: "/relation-types", label: "Loại quan hệ", icon: GitFork },
   { to: "/sources", label: "Nguồn tư liệu", icon: BookOpen },
+  { to: "/consistency", label: "Kiểm tra dữ liệu", icon: ShieldCheck },
   { to: "/registries", label: "Danh mục", icon: Settings2 },
 ];
 

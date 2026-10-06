@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Badge } from "@lineagraph/ui";
+import { JsonLd, isoDate } from "@/components/JsonLd";
 import { Monogram } from "@/components/Monogram";
 import { PageHeader } from "@/components/PageHeader";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
@@ -20,6 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: person.name,
     description,
+    alternates: { canonical: `/person/${person.slug}` },
     openGraph: { title: person.name, description, type: "profile" },
     twitter: { title: person.name, description },
   };
@@ -37,6 +39,18 @@ export default async function PersonPage({ params }: Props) {
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Person",
+          name: person.name,
+          alternateName: otherNames.map((n) => n.name),
+          description: person.summary ?? undefined,
+          gender: person.sex === "male" ? "Male" : person.sex === "female" ? "Female" : undefined,
+          birthDate: isoDate(person.birth) ?? undefined,
+          deathDate: isoDate(person.death) ?? undefined,
+        }}
+      />
       <PageHeader
         hero
         eyebrow="Nhân vật"
@@ -44,7 +58,13 @@ export default async function PersonPage({ params }: Props) {
         leading={
           <Monogram name={person.name} seed={person.slug} size="lg" className="hidden sm:grid" />
         }
-        description={lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất"}
+        description={[
+          lifeSpan(person.birth, person.death) || "Chưa rõ năm sinh – mất",
+          person.birthPlace && `sinh tại ${person.birthPlace.name}`,
+          person.deathPlace && `mất tại ${person.deathPlace.name}`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         meta={
           <>
             <Badge variant="neutral">{sexLabels[person.sex]}</Badge>

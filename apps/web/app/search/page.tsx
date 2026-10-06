@@ -8,6 +8,8 @@ import type { SearchResult } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Tìm kiếm",
+  // Result pages depend on the query string; they should not be listed as pages of their own.
+  robots: { index: false },
   description: "Tìm nhân vật hoặc chính thể trong lịch sử thế giới theo tên, không cần gõ dấu.",
 };
 
@@ -15,9 +17,15 @@ type Props = { searchParams: Promise<{ q?: string }> };
 
 export default async function SearchPage({ searchParams }: Props) {
   const { q = "" } = await searchParams;
-  const results = q.trim()
-    ? await apiGet<SearchResult[]>(`/search?q=${encodeURIComponent(q)}`)
-    : [];
+  let results: SearchResult[] = [];
+  let failed = false;
+  if (q.trim()) {
+    try {
+      results = await apiGet<SearchResult[]>(`/search?q=${encodeURIComponent(q)}`, { fresh: true });
+    } catch {
+      failed = true;
+    }
+  }
 
   return (
     <>
@@ -29,6 +37,8 @@ export default async function SearchPage({ searchParams }: Props) {
       <div className="mt-8 flex flex-col gap-3">
         {!q.trim() ? (
           <Empty>Nhập từ khoá vào ô tìm kiếm phía trên.</Empty>
+        ) : failed ? (
+          <Empty>Không tìm kiếm được lúc này, bạn thử lại sau ít giây.</Empty>
         ) : results.length === 0 ? (
           <Empty>Không tìm thấy kết quả nào.</Empty>
         ) : (

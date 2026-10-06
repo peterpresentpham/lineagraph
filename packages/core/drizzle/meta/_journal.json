@@ -43,6 +43,20 @@
       "when": 1791194762652,
       "tag": "0005_importance_and_disputed",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791245819424,
+      "tag": "0006_integrity_and_search_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791246715761,
+      "tag": "0007_places",
+      "breakpoints": true
     }
   ]
 }

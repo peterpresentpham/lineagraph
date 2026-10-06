@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@lineagraph/ui";
 import { Logo } from "@/components/Logo";
-import { nav } from "@/lib/nav";
+import { isActive, nav } from "@/lib/nav";
 
 const STORAGE_KEY = "lineagraph.sidebar-collapsed";
 
@@ -64,8 +64,9 @@ export function SiteSidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
-        {nav.map(({ href, label, icon: Icon }) => {
-          const active = pathname?.startsWith(href) ?? false;
+        {nav.map((item) => {
+          const { href, label, icon: Icon } = item;
+          const active = isActive(pathname, item);
           return (
             <Link
               key={href}

@@ -12,12 +12,14 @@
     "db:seed": "tsx src/scripts/seed.ts",
     "db:describe-polities": "tsx src/scripts/describe-polities.ts",
     "db:create-admin": "tsx src/scripts/create-admin.ts",
+    "db:recompute-dates": "tsx src/scripts/recompute-dates.ts",
     "test": "vitest run"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "^0.44.0",
     "postgres": "^3.4.0",
+    "transliteration": "^2.6.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {

@@ -17,10 +17,13 @@ năng cốt lõi) → mục 14 (MVP và lộ trình) → mục 15–16 (câu h�
 
 ## Trạng thái
 
-- **Giai đoạn:** khung project đã dựng ở repo này (`apps/`, `packages/`), chưa có logic thật
-  (routes trả `501 not_implemented`, trang là placeholder). Xem mục 14 của `design.md` để biết
-  thứ tự làm tiếp — tuần 1–2 là chốt mô hình dữ liệu bằng dữ liệu thật rồi chạy migration Drizzle
-  thật trên Postgres.
+- **Giai đoạn:** app đã chạy được: web công khai, trang admin (nhân vật, chính thể, địa điểm,
+  quan hệ, chức vụ, nguồn, kiểm tra dữ liệu) và API đều có logic thật trên Postgres. Chưa làm:
+  hàng đợi duyệt (`/review-queue*`) và phần học thẻ (`/review/today`, `/progress`), các route này
+  vẫn trả `501 not_implemented`; bảng sự kiện; importer hàng loạt. Với các bảng, nguồn sự thật là
+  `docs/database.md` và `packages/core/src/schema/`; những mô tả bảng `parentage`, `union`,
+  `person_closure`, `kinship_ruleset` trong `design.md` là thiết kế ban đầu đã được thay bằng
+  `kg.relation`.
 - Mọi SQL, thuật toán, con số ước tính trong `design.md` vẫn là **đề xuất thiết kế, chưa chạy
   thử** — mục 16 của `design.md` liệt kê rõ chỗ đã xác minh và chưa.
 

@@ -3,6 +3,7 @@ import { db } from "../db";
 import { ServiceError, notFound } from "../errors";
 import {
   describeKinship,
+  type KinshipTerms,
   kinshipSentence,
   type KinPerson,
   type ParentLink,
@@ -12,15 +13,17 @@ import { sexAwareLabel } from "../relations/roleLabel";
 import {
   TENURE_TYPE,
   buildAdjacency,
-  findPaths,
+  searchPaths,
   type RelationEdge,
   type RelationTypeInfo,
   type Step,
   type TenureEdge,
 } from "../relations/pathfinder";
 import { countHidden, egoBfs, type EgoLink } from "../relations/egograph";
+import { GRAPH_CACHE_KEY, cached } from "./cache";
 import { parseDate, type DateView } from "./dates";
 import { getNodeRelations, getNodeRefs, type NodeRef, type NodeRelation } from "./relationships";
+import { LABEL_LANGUAGE } from "./labels";
 
 const variantLabels: Record<string, string> = { adoptive: "nuôi", step: "kế" };
 
@@ -32,12 +35,17 @@ type TypeRow = {
   label: string | null;
 };
 
-async function loadGraphData() {
+// Path search needs every relation, tenure and person; reading them costs several round trips, so
+// the loaded graph is kept for a short while and dropped by invalidateGraphCache() on every write.
+// Callers only read it.
+const loadGraphData = () => cached(GRAPH_CACHE_KEY, 30_000, loadGraphDataUncached);
+
+async function loadGraphDataUncached() {
   const [typeRows, relationRows, tenureRows, personRows, officeLabels] = await Promise.all([
     db.execute<TypeRow>(
       sql`select t.code, t.inverse_code, t.is_symmetric, t.category, l.text as label
           from kg.relation_type t
-          left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = 'vi'`,
+          left join kg.label l on l.namespace = 'relation_type' and l.code = t.code and l.language = ${LABEL_LANGUAGE}`,
     ),
     db.execute<{
       id: string;
@@ -69,7 +77,7 @@ async function loadGraphData() {
           left join kg.fuzzy_date bd on bd.id = b.date_id`,
     ),
     db.execute<{ code: string; text: string }>(
-      sql`select code, text from kg.label where namespace = 'office_type' and language = 'vi'`,
+      sql`select code, text from kg.label where namespace = 'office_type' and language = ${LABEL_LANGUAGE}`,
     ),
   ]);
 
@@ -143,19 +151,27 @@ export type RelationResult = {
   direct: NodeRelation[];
   /** Chains of relationships linking them, shortest first. */
   paths: { cost: number; steps: PathStepView[] }[];
+  /** The search stopped early on a very connected graph, so more chains may exist. */
+  truncated: boolean;
 };
 
 export async function findRelations(
   aSlug: string,
   bSlug: string,
-  options: { includeDisputed?: boolean; maxCost?: number; limit?: number } = {},
+  options: {
+    includeDisputed?: boolean;
+    maxCost?: number;
+    limit?: number;
+    /** Kinship wording: Vietnamese terms (default) or ones that fit any culture. */
+    terms?: KinshipTerms;
+  } = {},
 ): Promise<RelationResult> {
   const [a, b] = await Promise.all([resolveNode(aSlug), resolveNode(bSlug)]);
   if (a.id === b.id) throw new ServiceError(400, "Hãy chọn hai đối tượng khác nhau");
 
   const data = await loadGraphData();
   const adjacency = buildAdjacency(data.relations, data.tenures, data.typeInfo);
-  const rawPaths = findPaths(adjacency, a.id, b.id, {
+  const { paths: rawPaths, truncated } = searchPaths(adjacency, a.id, b.id, {
     maxCost: options.maxCost ?? 6,
     limit: options.limit ?? 5,
     includeDisputed: options.includeDisputed,
@@ -199,6 +215,7 @@ export async function findRelations(
       }));
     const k = describeKinship(a.id, b.id, data.people, links, {
       includeDisputed: options.includeDisputed,
+      terms: options.terms,
     });
     if (k) {
       const ancestor = (await getNodeRefs([k.ancestorId])).get(k.ancestorId) ?? null;
@@ -214,7 +231,7 @@ export async function findRelations(
   }
 
   const direct = (await getNodeRelations(a.id)).filter((r) => r.other.id === b.id);
-  return { a, b, kinship, direct, paths };
+  return { a, b, kinship, direct, paths, truncated };
 }
 
 // --- Graph views for the web (nodes + edges, laid out in the browser) ---------------------
@@ -292,7 +309,10 @@ async function graphNodes(
   }));
 }
 
-function edgeFrom(r: RelationEdge, data: Awaited<ReturnType<typeof loadGraphData>>): GraphEdge {
+function edgeFrom(
+  r: RelationEdge,
+  data: Awaited<ReturnType<typeof loadGraphDataUncached>>,
+): GraphEdge {
   const t = data.types.get(r.type);
   const fromSex = data.people.get(r.fromId)?.sex ?? "unknown";
   const parts = [
@@ -375,14 +395,15 @@ async function fetchLinkRows(
   const wantTenure = !types || types.includes("tenure");
   const disputedFilter = opts.includeDisputed === false ? sql`and not r.disputed` : sql``;
 
-  const relations =
+  // Both queries are started before either is awaited: one round trip of waiting, not two.
+  const relationsQuery: Promise<LinkRow[]> | LinkRow[] =
     !relationTypes || relationTypes.length
-      ? await db.execute<LinkRow>(
+      ? db.execute<LinkRow>(
           sql`select r.id, r.type, r.from_id, r.to_id, r.variant, r.label, r.disputed, r.importance,
                    t.category, t.is_symmetric, l.text as type_label
             from kg.relation r
             join kg.relation_type t on t.code = r.type
-            left join kg.label l on l.namespace = 'relation_type' and l.code = r.type and l.language = 'vi'
+            left join kg.label l on l.namespace = 'relation_type' and l.code = r.type and l.language = ${LABEL_LANGUAGE}
             join kg.node f on f.id = r.from_id and f.deleted_at is null
             join kg.node o on o.id = r.to_id and o.deleted_at is null
             where ${touch} ${disputedFilter}
@@ -396,21 +417,22 @@ async function fetchLinkRows(
               }`,
         )
       : [];
-  const tenures = wantTenure
-    ? await db.execute<LinkRow>(
+  const tenuresQuery: Promise<LinkRow[]> | LinkRow[] = wantTenure
+    ? db.execute<LinkRow>(
         sql`select 'tenure:' || t.id as id, 'tenure' as type, t.person_id as from_id, t.polity_id as to_id,
                    t.office_type as variant, l.text as label, t.disputed as disputed,
                    ot.importance as importance,
                    'politics' as category, false as is_symmetric, 'Chức vụ' as type_label
             from history.tenure t
             join history.office_type ot on ot.code = t.office_type
-            left join kg.label l on l.namespace = 'office_type' and l.code = t.office_type and l.language = 'vi'
+            left join kg.label l on l.namespace = 'office_type' and l.code = t.office_type and l.language = ${LABEL_LANGUAGE}
             join kg.node p on p.id = t.person_id and p.deleted_at is null
             join kg.node q on q.id = t.polity_id and q.deleted_at is null
             where t.polity_id is not null and ${touchTenure}
               ${opts.includeDisputed === false ? sql`and not t.disputed` : sql``}`,
       )
     : [];
+  const [relations, tenures] = await Promise.all([relationsQuery, tenuresQuery]);
   return [...relations, ...tenures];
 }
 

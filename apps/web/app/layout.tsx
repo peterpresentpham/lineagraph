@@ -46,12 +46,20 @@ export default function RootLayout({ children }: Props) {
         <link href={fontsHref} rel="stylesheet" />
       </head>
       <body>
+        <a
+          href="#main"
+          className="bg-background text-foreground focus:ring-ring sr-only z-[60] rounded-md px-4 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:ring-2"
+        >
+          Bỏ qua, tới nội dung chính
+        </a>
         <div className="bg-brand-gradient fixed inset-x-0 top-0 z-50 h-0.5" aria-hidden />
         <div className="flex min-h-screen flex-col md:flex-row">
           <SiteSidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <SiteHeader />
-            <main className="container-page flex-1 py-8 md:py-10">{children}</main>
+            <main id="main" className="container-page flex-1 py-8 md:py-10">
+              {children}
+            </main>
             <SiteFooter />
           </div>
         </div>

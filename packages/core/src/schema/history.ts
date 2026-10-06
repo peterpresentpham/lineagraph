@@ -8,12 +8,15 @@ import {
   primaryKey,
   uniqueIndex,
   index,
+  check,
+  doublePrecision,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { node, fuzzyDate, language } from "./kg";
 
-// History domain layer: person, polity, tenure, union, parentage.
-// MVP scope skips place/event/kinship_ruleset — see design doc section 14.1.
+// History domain layer: person, polity, tenure and place. Events and kinship rulesets are not
+// modelled yet — see design doc section 14.1.
 export const history = pgSchema("history");
 
 export const polityType = history.table("polity_type", {
@@ -40,7 +43,30 @@ export const person = history.table("person", {
   sex: text("sex").notNull().default("unknown"),
   historicity: text("historicity").notNull().default("historical"),
   summary: text("summary"),
+  birthPlaceId: uuid("birth_place_id").references(() => place.id),
+  deathPlaceId: uuid("death_place_id").references(() => place.id),
 });
+
+// A place a person was born or died in. Places nest (a city inside a province inside a country)
+// through parentId; coordinates are optional.
+export const place = history.table(
+  "place",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    nameNormalized: text("name_normalized").notNull(),
+    parentId: uuid("parent_id").references((): AnyPgColumn => place.id),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    note: text("note"),
+  },
+  (t) => [
+    index("place_name_idx").on(t.nameNormalized),
+    index("place_parent_idx").on(t.parentId),
+    check("place_latitude_check", sql`${t.latitude} between -90 and 90`),
+    check("place_longitude_check", sql`${t.longitude} between -180 and 180`),
+  ],
+);
 
 export const personDate = history.table(
   "person_date",
@@ -53,7 +79,6 @@ export const personDate = history.table(
     dateId: uuid("date_id")
       .notNull()
       .references(() => fuzzyDate.id),
-    placeId: uuid("place_id"),
     isPreferred: boolean("is_preferred").notNull().default(false),
   },
   (t) => [

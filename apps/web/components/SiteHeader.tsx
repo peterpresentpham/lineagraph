@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 import { ThemeToggle, cn } from "@lineagraph/ui";
 import { Logo } from "@/components/Logo";
-import { nav } from "@/lib/nav";
+import { isActive, nav } from "@/lib/nav";
 
 function SearchForm() {
   return (
     <form action="/search" className="w-full">
       <label className="relative block">
+        <span className="sr-only">Tìm nhân vật hoặc chính thể</span>
         <Search className="text-muted-foreground pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2" />
         <input
           name="q"
@@ -41,13 +42,18 @@ export function SiteHeader() {
       <div className="px-gutter pb-2 md:hidden">
         <SearchForm />
       </div>
-      <nav className="px-gutter flex gap-1 overflow-x-auto pb-2 md:hidden">
-        {nav.map(({ href, label }) => {
-          const active = pathname?.startsWith(href) ?? false;
+      <nav
+        aria-label="Điều hướng chính"
+        className="px-gutter flex gap-1 overflow-x-auto pb-2 md:hidden"
+      >
+        {nav.map((item) => {
+          const { href, label } = item;
+          const active = isActive(pathname, item);
           return (
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "text-muted-foreground shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium no-underline",
                 active && "bg-accent text-accent-foreground",

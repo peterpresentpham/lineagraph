@@ -4,6 +4,7 @@ import { Badge } from "@lineagraph/ui";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
+import { JsonLd, isoDate } from "@/components/JsonLd";
 import { PageHeader } from "@/components/PageHeader";
 import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
@@ -17,6 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: polity.name,
     description,
+    alternates: { canonical: `/polity/${polity.slug}` },
     openGraph: { title: polity.name, description, type: "website" },
     twitter: { title: polity.name, description },
   };
@@ -34,6 +36,17 @@ export default async function PolityPage({ params }: Props) {
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: polity.name,
+          alternateName: otherNames.map((n) => n.name),
+          description: polity.summary ?? undefined,
+          foundingDate: isoDate(polity.started) ?? undefined,
+          dissolutionDate: isoDate(polity.ended) ?? undefined,
+        }}
+      />
       <PageHeader
         hero
         eyebrow="Chính thể"

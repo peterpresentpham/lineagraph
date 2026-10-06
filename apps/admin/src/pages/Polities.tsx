@@ -28,7 +28,10 @@ export function Polities() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["polities", q],
-    queryFn: () => api.get<PolitySummary[]>(`/polities?q=${encodeURIComponent(q)}`),
+    queryFn: () =>
+      api.get<{ items: PolitySummary[]; total: number }>(
+        `/polities?limit=200&q=${encodeURIComponent(q)}`,
+      ),
   });
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["polities"] });
@@ -64,7 +67,7 @@ export function Polities() {
           </TableHeader>
           <TableBody>
             {isLoading && <TableSkeleton cols={4} />}
-            {data?.map((p) => (
+            {data?.items.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="font-medium">
                   <Link to={`/polities/${p.id}`}>{p.name}</Link>
@@ -96,7 +99,7 @@ export function Polities() {
                 </TableCell>
               </TableRow>
             ))}
-            {data && data.length === 0 && (
+            {data && data.items.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-muted-foreground py-8 text-center">
                   Chưa có chính thể nào
@@ -106,6 +109,11 @@ export function Polities() {
           </TableBody>
         </Table>
       </div>
+      {data && data.total > data.items.length && (
+        <p className="text-muted-foreground mt-3 text-sm">
+          Hiển thị {data.items.length}/{data.total} chính thể. Gõ tên để thu hẹp danh sách.
+        </p>
+      )}
     </>
   );
 }

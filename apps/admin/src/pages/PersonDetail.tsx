@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -24,12 +24,13 @@ import { DateField, cleanDate } from "../components/DateField";
 import { Field } from "../components/Field";
 import { FormSkeleton } from "../components/FormSkeleton";
 import { NamesField, emptyNames } from "../components/NamesField";
+import { PlacePicker } from "../components/PlacePicker";
 import { NodeGraph } from "../components/NodeGraph";
 import { RelationsPanel } from "../components/RelationsPanel";
 import { TenuresPanel } from "../components/TenuresPanel";
 import { api } from "../lib/api";
 import { historicityLabels, sexLabels, toDateInput } from "../lib/format";
-import { errorMessage } from "../lib/hooks";
+import { errorMessage, useUnsavedChangesGuard } from "../lib/hooks";
 import type { AttributeValue, DateInput, DateValue, NameValue } from "../lib/types";
 
 type Form = {
@@ -41,6 +42,11 @@ type Form = {
   attributes: AttributeValue[];
   birth: DateInput | null;
   death: DateInput | null;
+  birthPlaceId: string | null;
+  deathPlaceId: string | null;
+  // Names for display only (not sent to the API).
+  birthPlaceName: string | null;
+  deathPlaceName: string | null;
 };
 const emptyForm = (): Form => ({
   names: emptyNames(),
@@ -51,6 +57,10 @@ const emptyForm = (): Form => ({
   attributes: [],
   birth: null,
   death: null,
+  birthPlaceId: null,
+  deathPlaceId: null,
+  birthPlaceName: null,
+  deathPlaceName: null,
 });
 type EditData = Omit<Form, "birth" | "death" | "summary" | "body"> & {
   id: string;
@@ -71,7 +81,13 @@ export function PersonDetail() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<Form>(emptyForm());
   // Serialized request body of the form as loaded; used to tell whether anything was edited.
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(() =>
+    isNew ? JSON.stringify(toBody(emptyForm())) : null,
+  );
+  const formRef = useRef(form);
+  const savedRef = useRef(saved);
+  formRef.current = form;
+  savedRef.current = saved;
 
   const { data, isError, isLoading } = useQuery({
     queryKey: ["person-edit", id],
@@ -80,7 +96,10 @@ export function PersonDetail() {
   });
 
   useEffect(() => {
-    if (data) {
+    // A background refetch must not overwrite edits the admin is in the middle of making.
+    const editing =
+      savedRef.current !== null && JSON.stringify(toBody(formRef.current)) !== savedRef.current;
+    if (data && !editing) {
       const loaded = {
         ...data,
         summary: data.summary ?? "",
@@ -93,7 +112,9 @@ export function PersonDetail() {
     }
   }, [data]);
 
-  const isDirty = isNew || JSON.stringify(toBody(form)) !== saved;
+  const hasEdits = saved !== null && JSON.stringify(toBody(form)) !== saved;
+  const isDirty = isNew || hasEdits;
+  const allowLeave = useUnsavedChangesGuard(hasEdits);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -106,8 +127,16 @@ export function PersonDetail() {
       toast.success(isNew ? "Đã thêm nhân vật" : "Đã lưu");
       queryClient.invalidateQueries({ queryKey: ["persons"] });
       queryClient.invalidateQueries({ queryKey: ["person-edit", id] });
+      // Names show up in relationship and office lists, so those caches are stale too.
+      queryClient.invalidateQueries({ queryKey: ["relationships"] });
+      queryClient.invalidateQueries({ queryKey: ["tenures"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
-      if (isNew) navigate(`/persons/${result.id}`, { replace: true });
+      // What was just saved is the new baseline, so the form is clean again.
+      setSaved(JSON.stringify(toBody(form)));
+      if (isNew) {
+        allowLeave();
+        navigate(`/persons/${result.id}`, { replace: true });
+      }
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -174,6 +203,22 @@ export function PersonDetail() {
         value={form.death}
         onChange={(death) => setForm({ ...form, death })}
       />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Nơi sinh">
+          <PlacePicker
+            value={form.birthPlaceId}
+            selectedName={form.birthPlaceName}
+            onChange={(id, name) => setForm({ ...form, birthPlaceId: id, birthPlaceName: name })}
+          />
+        </Field>
+        <Field label="Nơi mất">
+          <PlacePicker
+            value={form.deathPlaceId}
+            selectedName={form.deathPlaceName}
+            onChange={(id, name) => setForm({ ...form, deathPlaceId: id, deathPlaceName: name })}
+          />
+        </Field>
+      </div>
       <Field
         label="Tóm tắt"
         hint="Một hai câu giới thiệu, hiện ở đầu trang và trong kết quả tìm kiếm."

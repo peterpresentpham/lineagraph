@@ -17,7 +17,8 @@ type GraphUiContext = {
   onExpand?: (nodeId: string) => void;
   onRecenter?: (node: GraphNode) => void;
 };
-const defaultLink: RenderNodeLink = (node, { className, children }) => (
+/** How a node name links to its page when the host app supplies no router link. */
+export const defaultLink: RenderNodeLink = (node, { className, children }) => (
   <a href={`/${node.kind}/${node.slug}`} className={className}>
     {children}
   </a>
@@ -134,7 +135,7 @@ function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
           title="Lấy làm trung tâm"
           aria-label="Lấy làm trung tâm"
           onClick={() => onRecenter(node)}
-          className="nodrag text-muted-foreground hover:text-primary absolute right-1.5 top-1.5"
+          className="nodrag text-muted-foreground hover:text-primary focus-visible:ring-ring absolute right-0 top-0 grid size-8 place-items-center rounded-md outline-none focus-visible:ring-2"
         >
           <Crosshair className="size-3.5" />
         </button>
@@ -144,7 +145,7 @@ function EntityNode({ data }: NodeProps<Node<EntityNodeData>>) {
           type="button"
           title={`Còn ${hidden} người liên quan chưa hiện`}
           onClick={() => onExpand(node.id)}
-          className="nodrag border-primary bg-card text-primary hover:bg-primary hover:text-primary-foreground absolute -bottom-2 -right-2 rounded-full border px-1.5 text-[11px] font-semibold leading-5"
+          className="nodrag border-primary bg-card text-primary hover:bg-primary hover:text-primary-foreground focus-visible:ring-ring absolute -bottom-2 -right-2 min-w-7 rounded-full border px-2 text-xs font-semibold leading-6 outline-none after:absolute after:-inset-2 after:content-[''] focus-visible:ring-2"
         >
           +{hidden}
         </button>

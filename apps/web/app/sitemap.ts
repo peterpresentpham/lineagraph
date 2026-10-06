@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/lib/site";
+import { API_URL, SITE_URL } from "@/lib/site";
 
-const API_URL = process.env.API_URL ?? "http://localhost:4200";
 const PAGE_SIZE = 200; // server caps `limit` at 200 regardless of what we ask for
 const MAX_PERSONS = 20_000; // safety bound on the pagination loop below
 
@@ -20,10 +19,17 @@ async function allPersonSlugs(): Promise<string[]> {
 }
 
 async function allPolitySlugs(): Promise<string[]> {
-  const res = await fetch(`${API_URL}/polities`, { cache: "no-store" });
-  if (!res.ok) return [];
-  const polities = (await res.json()) as { slug: string }[];
-  return polities.map((p) => p.slug);
+  const slugs: string[] = [];
+  for (let offset = 0; offset < MAX_PERSONS; offset += PAGE_SIZE) {
+    const res = await fetch(`${API_URL}/polities?limit=${PAGE_SIZE}&offset=${offset}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) break;
+    const { items, total } = (await res.json()) as { items: { slug: string }[]; total: number };
+    slugs.push(...items.map((p) => p.slug));
+    if (offset + PAGE_SIZE >= total) break;
+  }
+  return slugs;
 }
 
 const staticRoutes: { path: string; priority: number; changeFrequency: "weekly" | "monthly" }[] = [

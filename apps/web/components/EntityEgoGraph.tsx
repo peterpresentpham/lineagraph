@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Network } from "lucide-react";
 import { Button } from "@lineagraph/ui";
 import { egoApi } from "@/lib/egoApi";
-import { renderNodeLink } from "./GraphClient";
+import { renderNodeLink } from "./renderNodeLink";
 
 const EgoGraph = dynamic(() => import("@lineagraph/ui/graph").then((m) => m.EgoGraph), {
   ssr: false,

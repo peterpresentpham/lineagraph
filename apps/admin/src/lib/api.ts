@@ -35,7 +35,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (response.status === 401 && path !== "/auth/login") onUnauthorized();
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    throw new ApiError(response.status, data?.error ?? "Đã có lỗi xảy ra");
+    // Validation failures list every problem, so show them all rather than just the first.
+    const issues: string[] = Array.isArray(data?.issues)
+      ? [...new Set<string>(data.issues.map((i: { message: string }) => i.message))]
+      : [];
+    throw new ApiError(
+      response.status,
+      issues.length > 1 ? issues.join("; ") : (data?.error ?? "Đã có lỗi xảy ra"),
+    );
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }

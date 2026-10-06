@@ -5,6 +5,8 @@ import { apiGet } from "@/lib/api";
 
 export const metadata: Metadata = {
   title: "Sơ đồ quan hệ",
+  // Result pages depend on the query string; they should not be listed as pages of their own.
+  robots: { index: false },
   description: "Sơ đồ trực quan quan hệ giữa nhân vật và chính thể trong lịch sử thế giới.",
 };
 

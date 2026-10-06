@@ -1,13 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { notFound } from "../errors";
 import { polity } from "../schema/history";
 import { node } from "../schema/kg";
 import type { PolityInput } from "../validation";
-import { deleteDates, insertDate, parseDate } from "./dates";
-import { createNode, replaceNames, setAttributes, softDeleteNode } from "./node";
+import { dateInsert, parseDate } from "./dates";
+import { nameAttributeCtes, softDeleteNode, uniqueSlug } from "./node";
 import { getNodeRelations } from "./relationships";
-import { normalizeText } from "./text";
+import { likeContains, normalizeText } from "./text";
+import { LABEL_LANGUAGE } from "./labels";
 
 type ListRow = {
   id: string;
@@ -36,15 +38,30 @@ const listItem = (r: ListRow) => ({
   ended: parseDate(r.end_edtf),
 });
 
-export async function listPolities(opts: { q?: string }) {
+export async function listPolities(opts: {
+  q?: string;
+  type?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const offset = Math.max(opts.offset ?? 0, 0);
   const q = opts.q ? normalizeText(opts.q) : null;
-  const filter = q
-    ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${"%" + q + "%"})`
-    : sql``;
-  const rows = await db.execute<ListRow>(
-    sql`${listSelect} ${filter} order by sd.earliest_jdn nulls last, pn.name`,
-  );
-  return rows.map(listItem);
+  const filter = sql`${
+    q
+      ? sql`and exists (select 1 from kg.name x where x.node_id = n.id and x.name_normalized like ${likeContains(q)})`
+      : sql``
+  } ${opts.type ? sql`and p.polity_type = ${opts.type}` : sql``}`;
+  const [rows, [{ count }]] = await Promise.all([
+    db.execute<ListRow>(
+      sql`${listSelect} ${filter} order by sd.earliest_jdn nulls last, pn.name limit ${limit} offset ${offset}`,
+    ),
+    db.execute<{ count: number }>(
+      sql`select count(*)::int as count from kg.node n join history.polity p on p.id = n.id
+          where n.deleted_at is null ${filter}`,
+    ),
+  ]);
+  return { items: rows.map(listItem), total: count };
 }
 
 async function resolveId(slugOrId: string): Promise<string> {
@@ -79,14 +96,15 @@ export async function getPolity(slugOrId: string) {
       name: string;
       kind: string;
       language: string | null;
+      script: string | null;
       is_primary: boolean;
     }>(
-      sql`select name, kind, language, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
+      sql`select name, kind, language, script, is_primary from kg.name where node_id = ${id} order by is_primary desc, name`,
     ),
     db.execute<{ type: string; label: string | null; value: string }>(
       sql`select a.type, l.text as label, a.value
           from kg.attribute a
-          left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = 'vi'
+          left join kg.label l on l.namespace = 'attribute_type' and l.code = a.type and l.language = ${LABEL_LANGUAGE}
           where a.node_id = ${id} order by a.sort_order`,
     ),
     db.select({ body: node.body }).from(node).where(eq(node.id, id)),
@@ -127,6 +145,7 @@ export async function getPolity(slugOrId: string) {
       name: n.name,
       kind: n.kind,
       language: n.language,
+      script: n.script,
       isPrimary: n.is_primary,
     })),
     tenures: tenures.map((t) => ({
@@ -159,43 +178,55 @@ export async function getPolityForEdit(slugOrId: string) {
 }
 
 export async function createPolity(input: PolityInput) {
-  return db.transaction(async (tx) => {
-    const created = await createNode(tx, "polity", input.names, input.body);
-    await setAttributes(tx, created.id, input.attributes);
-    await tx.insert(polity).values({
-      id: created.id,
-      polityType: input.polityType,
-      summary: input.summary,
-      startedId: await insertDate(tx, input.started),
-      endedId: await insertDate(tx, input.ended),
-    });
-    return created;
-  });
+  // One statement after one slug lookup, like createPerson.
+  const id = randomUUID();
+  const slug = await uniqueSlug(input.names);
+  const started = dateInsert(input.started);
+  const ended = dateInsert(input.ended);
+  await db.execute(sql`
+    with created as (
+      insert into kg.node (id, kind, slug, body, review_state)
+      values (${id}::uuid, 'polity', ${slug}, ${input.body}, 'approved') returning id)
+    ${started.insert ? sql`, started_date as (${started.insert})` : sql``}
+    ${ended.insert ? sql`, ended_date as (${ended.insert})` : sql``},
+    polity_row as (
+      insert into history.polity (id, polity_type, summary, started_id, ended_id)
+      select id, ${input.polityType}, ${input.summary}, ${started.id}::uuid, ${ended.id}::uuid
+      from created),
+    ${sql.join(nameAttributeCtes(id, input.names, input.attributes, "created"), sql`, `)}
+    select id from created`);
+  return { id, slug };
 }
 
 export async function updatePolity(id: string, input: PolityInput) {
-  await resolveId(id);
-  await db.transaction(async (tx) => {
-    const [old] = await tx
-      .select({ s: polity.startedId, e: polity.endedId })
-      .from(polity)
-      .where(eq(polity.id, id));
-    await tx
-      .update(polity)
-      .set({
-        polityType: input.polityType,
-        summary: input.summary,
-        startedId: await insertDate(tx, input.started),
-        endedId: await insertDate(tx, input.ended),
-      })
-      .where(eq(polity.id, id));
-    await deleteDates(tx, [old?.s ?? null, old?.e ?? null]);
-    await replaceNames(tx, id, input.names, input.body);
-    await setAttributes(tx, id, input.attributes);
-  });
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw notFound("chính thể");
+  // One statement. The new dates are only inserted when this is a live polity, and the old ones
+  // are removed in the same statement.
+  const live = sql`exists (
+    select 1 from kg.node n join history.polity p on p.id = n.id
+    where n.id = ${id}::uuid and n.deleted_at is null)`;
+  const started = dateInsert(input.started, live);
+  const ended = dateInsert(input.ended, live);
+  const [result] = await db.execute<{ updated: number }>(sql`
+    with old as (select started_id, ended_id from history.polity where id = ${id}::uuid)
+    ${started.insert ? sql`, started_date as (${started.insert})` : sql``}
+    ${ended.insert ? sql`, ended_date as (${ended.insert})` : sql``},
+    upd as (
+      update history.polity set polity_type = ${input.polityType}, summary = ${input.summary},
+        started_id = ${started.id}::uuid, ended_id = ${ended.id}::uuid
+      where id = ${id}::uuid and ${live} returning id),
+    node_upd as (
+      update kg.node set updated_at = now()${input.body !== undefined ? sql`, body = ${input.body}` : sql``}
+      where id in (select id from upd)),
+    ${sql.join(nameAttributeCtes(id, input.names, input.attributes, "upd"), sql`, `)},
+    gone_dates as (
+      delete from kg.fuzzy_date
+      where id in (select started_id from old union select ended_id from old)
+        and exists (select 1 from upd))
+    select count(*)::int as updated from upd`);
+  if (!result?.updated) throw notFound("chính thể");
 }
 
 export async function deletePolity(id: string) {
-  await resolveId(id);
-  await db.transaction((tx) => softDeleteNode(tx, id));
+  await softDeleteNode(id, "polity");
 }

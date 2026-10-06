@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
+import { Pagination } from "@/components/Pagination";
 import { PolityCard } from "@/components/PolityCard";
 import { Empty } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
@@ -9,25 +12,53 @@ export const metadata: Metadata = {
   title: "Chính thể",
   description: "Danh sách triều đại và chính quyền trong lịch sử thế giới, theo thứ tự thời gian.",
 };
+const PAGE_SIZE = 24;
 
-export default async function PolitiesPage() {
-  const [polities, typeLabels] = await Promise.all([
-    apiGet<PolitySummary[]>("/polities"),
-    getLabels("polity_type"),
-  ]);
+type Props = { searchParams: Promise<{ page?: string; type?: string }> };
+
+export default async function PolitiesPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page) || 1);
+  const typeLabels = await getLabels("polity_type");
+  // Only a known type is passed on, so a mistyped filter shows everything instead of nothing.
+  const type = params.type && params.type in typeLabels ? params.type : "";
+  const { items, total } = await apiGet<{ items: PolitySummary[]; total: number }>(
+    `/polities?limit=${PAGE_SIZE}&offset=${(page - 1) * PAGE_SIZE}${type ? `&type=${encodeURIComponent(type)}` : ""}`,
+  );
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (page > pages) notFound();
+  const hrefFor = (p: number, t = type) =>
+    `/polities?${new URLSearchParams({ ...(t ? { type: t } : {}), ...(p > 1 ? { page: String(p) } : {}) })}`;
+
   return (
     <>
       <PageHeader
         eyebrow="Triều đại & chính quyền"
         title="Chính thể"
-        description="Các triều đại và chính quyền, theo thứ tự thời gian."
+        description={`${total} chính thể, theo thứ tự thời gian.`}
       />
+      <nav aria-label="Lọc theo loại" className="mt-6 flex flex-wrap gap-2">
+        {[["", "Tất cả"], ...Object.entries(typeLabels)].map(([code, label]) => (
+          <Link
+            key={code || "all"}
+            href={hrefFor(1, code)}
+            aria-current={code === type ? "true" : undefined}
+            className={
+              code === type
+                ? "border-primary bg-accent text-foreground rounded-full border px-3 py-1 text-xs"
+                : "bg-card text-muted-foreground hover:text-foreground rounded-full border px-3 py-1 text-xs"
+            }
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
       <div className="mt-8">
-        {polities.length === 0 ? (
+        {items.length === 0 ? (
           <Empty>Chưa có dữ liệu.</Empty>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {polities.map((p) => (
+            {items.map((p) => (
               <PolityCard
                 key={p.id}
                 polity={p}
@@ -37,6 +68,7 @@ export default async function PolitiesPage() {
           </div>
         )}
       </div>
+      <Pagination page={page} pages={pages} hrefFor={hrefFor} />
     </>
   );
 }

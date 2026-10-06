@@ -6,8 +6,6 @@ import { Empty, Section } from "@/components/Section";
 import { apiGet, getLabels } from "@/lib/api";
 import type { PersonSummary, PolitySummary } from "@/lib/types";
 
-const suggestions = ["Lê Lợi", "Nhà Trần", "Nguyễn Trãi", "Lê Thánh Tông"];
-
 const tools = [
   {
     href: "/graph",
@@ -24,11 +22,14 @@ const tools = [
 ];
 
 export default async function HomePage() {
-  const [polities, persons, typeLabels] = await Promise.all([
-    apiGet<PolitySummary[]>("/polities"),
+  const [{ items: polities, total: polityTotal }, persons, typeLabels] = await Promise.all([
+    apiGet<{ items: PolitySummary[]; total: number }>("/polities?limit=6"),
     apiGet<{ items: PersonSummary[]; total: number }>("/persons?limit=8"),
     getLabels("polity_type"),
   ]);
+
+  // Example searches come from what is actually in the data, not a fixed list of names.
+  const suggestions = [...polities.slice(0, 2), ...persons.items.slice(0, 2)].map((n) => n.name);
 
   return (
     <>
@@ -45,11 +46,12 @@ export default async function HomePage() {
           </p>
           <form action="/search" className="mt-8 flex max-w-xl">
             <label className="relative w-full">
+              <span className="sr-only">Tìm nhân vật hoặc chính thể</span>
               <Search className="text-muted-foreground pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2" />
               <input
                 name="q"
                 type="search"
-                placeholder="Thử gõ: Lê Lợi, Nhà Trần..."
+                placeholder={`Thử gõ: ${suggestions.slice(0, 2).join(", ")}...`}
                 className="border-input bg-card focus:border-ring focus:ring-ring/25 h-14 w-full rounded-2xl border pl-12 pr-4 text-base shadow-md outline-none transition focus:ring-4"
               />
             </label>
@@ -73,7 +75,7 @@ export default async function HomePage() {
             </div>
             <div>
               <dt className="text-muted-foreground text-sm">Chính thể</dt>
-              <dd className="font-serif text-3xl font-semibold">{polities.length}</dd>
+              <dd className="font-serif text-3xl font-semibold">{polityTotal}</dd>
             </div>
           </dl>
         </div>
@@ -99,7 +101,7 @@ export default async function HomePage() {
       <Section
         title="Chính thể"
         action={
-          polities.length > 6 && (
+          polityTotal > 6 && (
             <Link href="/polities" className="flex items-center gap-1 text-sm font-medium">
               Xem tất cả <ArrowRight className="size-4" />
             </Link>
@@ -110,7 +112,7 @@ export default async function HomePage() {
           <Empty>Chưa có dữ liệu.</Empty>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {polities.slice(0, 6).map((p) => (
+            {polities.map((p) => (
               <PolityCard
                 key={p.id}
                 polity={p}

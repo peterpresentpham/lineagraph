@@ -3,6 +3,8 @@ export type DateValue = {
   month: number | null;
   day: number | null;
   approximate: boolean;
+  /** Calendar the date was given in; Gregorian when absent. */
+  calendar?: "gregorian" | "julian";
   label: string;
 };
 
@@ -12,6 +14,7 @@ export type DateInput = {
   month?: number | null;
   day?: number | null;
   approximate: boolean;
+  calendar?: "gregorian" | "julian";
 };
 
 export type NameValue = {
@@ -29,6 +32,15 @@ export type PersonSummary = {
   historicity: string;
   birth: DateValue | null;
   death: DateValue | null;
+};
+
+export type PlaceSummary = {
+  id: string;
+  name: string;
+  parent: { id: string; name: string } | null;
+  latitude: number | null;
+  longitude: number | null;
+  note: string | null;
 };
 
 export type PolitySummary = {

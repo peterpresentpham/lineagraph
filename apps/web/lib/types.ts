@@ -3,6 +3,8 @@ export type DateValue = {
   month: number | null;
   day: number | null;
   approximate: boolean;
+  /** Calendar the date was given in; Gregorian when absent. The label already says it. */
+  calendar?: "gregorian" | "julian";
   label: string;
 };
 
@@ -49,6 +51,8 @@ export type AttributeView = { type: string; label: string; value: string };
 
 export type PersonDetail = PersonSummary & {
   summary: string | null;
+  birthPlace: { id: string; name: string } | null;
+  deathPlace: { id: string; name: string } | null;
   body: string | null;
   names: NameEntry[];
   attributes: AttributeView[];
@@ -131,6 +135,8 @@ export type RelationResult = {
   } | null;
   direct: NodeRelation[];
   paths: { cost: number; steps: PathStep[] }[];
+  /** The search stopped early on a very connected graph, so more chains may exist. */
+  truncated?: boolean;
 };
 
 export type Citation = {

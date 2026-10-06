@@ -45,9 +45,9 @@ export function EntityPicker({
           detail: lifeSpan(p.birth, p.death),
         }));
       const polities = async () =>
-        (await api.get<PolitySummary[]>(`/polities?q=${query}`))
-          .slice(0, both ? 5 : 8)
-          .map((p): Option => ({ id: p.id, kind: "polity", name: p.name }));
+        (
+          await api.get<{ items: PolitySummary[] }>(`/polities?q=${query}&limit=${both ? 5 : 8}`)
+        ).items.map((p): Option => ({ id: p.id, kind: "polity", name: p.name }));
       if (both) return [...(await people()), ...(await polities())];
       return kinds.includes("person") ? people() : polities();
     },

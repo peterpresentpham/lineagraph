@@ -10,30 +10,48 @@ import type { RelationResult } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: "Tìm mối quan hệ",
+  // Result pages depend on the query string; they should not be listed as pages of their own.
+  robots: { index: false },
   description:
     "Tìm mối quan hệ họ hàng giữa hai nhân vật lịch sử thế giới, trực tiếp hoặc qua tổ tiên chung.",
 };
 
-type Props = { searchParams: Promise<{ a?: string; b?: string; disputed?: string }> };
+type Props = {
+  searchParams: Promise<{ a?: string; b?: string; disputed?: string; terms?: string }>;
+};
 
 export default async function RelationsPage({ searchParams }: Props) {
-  const { a, b, disputed } = await searchParams;
+  const { a, b, disputed, terms } = await searchParams;
   const includeDisputed = disputed === "1";
-  const result =
-    a && b && a !== b
-      ? await apiGet<RelationResult>(
-          `/relations?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}${includeDisputed ? "&includeDisputed=1" : ""}`,
-        )
-      : null;
+  const neutralTerms = terms === "neutral";
+  // What went wrong with this search, shown in place of the results.
+  let problem: string | null = null;
+  if (a && b && a === b) problem = "Hãy chọn hai đối tượng khác nhau.";
+  else if ((a && !b) || (!a && b)) problem = "Cần chọn đủ cả hai đối tượng.";
+  let result: RelationResult | null = null;
+  if (a && b && a !== b) {
+    try {
+      result = await apiGet<RelationResult>(
+        `/relations?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}${includeDisputed ? "&includeDisputed=1" : ""}${neutralTerms ? "&terms=neutral" : ""}`,
+        { fresh: true },
+      );
+    } catch {
+      problem = "Không tìm được quan hệ lúc này. Kiểm tra lại hai đối tượng hoặc thử lại sau.";
+    }
+  }
+  // Fills a picker from its slug; either a person or a polity can be picked.
   const pre = async (slug?: string) => {
     if (!slug) return undefined;
     if (result) return { slug, name: slug === result.a.slug ? result.a.name : result.b.name };
-    try {
-      const p = await apiGet<{ name: string }>(`/persons/${slug}`);
-      return { slug, name: p.name };
-    } catch {
-      return undefined;
+    for (const kind of ["persons", "polities"]) {
+      try {
+        const node = await apiGet<{ name: string }>(`/${kind}/${encodeURIComponent(slug)}`);
+        return { slug, name: node.name };
+      } catch {
+        // Not found under this kind; try the next.
+      }
     }
+    return undefined;
   };
   const [initA, initB] = await Promise.all([pre(a), pre(b)]);
 
@@ -61,6 +79,23 @@ export default async function RelationsPage({ searchParams }: Props) {
         />
         Bao gồm cả quan hệ còn tranh cãi
       </label>
+      <label className="text-muted-foreground mt-2 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          form="finder"
+          name="terms"
+          value="neutral"
+          defaultChecked={neutralTerms}
+        />
+        Dùng cách gọi trung tính (không phân nội/ngoại, bác/chú/cô/cậu/dì), hợp với gia đình ngoài
+        Việt Nam
+      </label>
+
+      {problem && (
+        <p role="alert" className="text-destructive mt-6 text-sm">
+          {problem}
+        </p>
+      )}
 
       {result && (
         <>
@@ -96,6 +131,11 @@ export default async function RelationsPage({ searchParams }: Props) {
           )}
 
           <Section title="Các chuỗi quan hệ">
+            {result.truncated && (
+              <p className="text-muted-foreground mb-3 text-sm">
+                Đồ thị quanh hai đối tượng này rất dày nên kết quả có thể chưa đầy đủ.
+              </p>
+            )}
             {result.paths.length === 0 ? (
               <Empty>
                 Chưa tìm thấy mối liên hệ nào giữa {result.a.name} và {result.b.name} trong dữ liệu

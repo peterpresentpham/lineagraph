@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -29,7 +29,7 @@ import { RelationsPanel } from "../components/RelationsPanel";
 import { TenuresPanel } from "../components/TenuresPanel";
 import { api } from "../lib/api";
 import { toDateInput } from "../lib/format";
-import { errorMessage, useRegistry } from "../lib/hooks";
+import { errorMessage, useRegistry, useUnsavedChangesGuard } from "../lib/hooks";
 import type { AttributeValue, DateInput, DateValue, NameValue } from "../lib/types";
 
 type Form = {
@@ -73,7 +73,13 @@ export function PolityDetail() {
   const { data: types } = useRegistry("polity_type");
   const [form, setForm] = useState<Form>(emptyForm());
   // Serialized request body of the form as loaded; used to tell whether anything was edited.
-  const [saved, setSaved] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(() =>
+    isNew ? JSON.stringify(toBody(emptyForm())) : null,
+  );
+  const formRef = useRef(form);
+  const savedRef = useRef(saved);
+  formRef.current = form;
+  savedRef.current = saved;
 
   const { data, isError, isLoading } = useQuery({
     queryKey: ["polity-edit", id],
@@ -81,7 +87,10 @@ export function PolityDetail() {
     queryFn: () => api.get<EditData>(`/polities/${id}/edit`),
   });
   useEffect(() => {
-    if (data) {
+    // A background refetch must not overwrite edits the admin is in the middle of making.
+    const editing =
+      savedRef.current !== null && JSON.stringify(toBody(formRef.current)) !== savedRef.current;
+    if (data && !editing) {
       const loaded = {
         ...data,
         summary: data.summary ?? "",
@@ -94,7 +103,9 @@ export function PolityDetail() {
     }
   }, [data]);
 
-  const isDirty = isNew || JSON.stringify(toBody(form)) !== saved;
+  const hasEdits = saved !== null && JSON.stringify(toBody(form)) !== saved;
+  const isDirty = isNew || hasEdits;
+  const allowLeave = useUnsavedChangesGuard(hasEdits);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -108,7 +119,12 @@ export function PolityDetail() {
       queryClient.invalidateQueries({ queryKey: ["polities"] });
       queryClient.invalidateQueries({ queryKey: ["polity-edit", id] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
-      if (isNew) navigate(`/polities/${result.id}`, { replace: true });
+      // What was just saved is the new baseline, so the form is clean again.
+      setSaved(JSON.stringify(toBody(form)));
+      if (isNew) {
+        allowLeave();
+        navigate(`/polities/${result.id}`, { replace: true });
+      }
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
