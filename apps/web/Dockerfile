@@ -1,6 +1,6 @@
 # lineagraph web (Next.js). Build context is the monorepo root:
 #   docker build -f apps/web/Dockerfile .
-FROM node:22.20-bookworm-slim AS base
+FROM node:26.11-bookworm-slim AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable
