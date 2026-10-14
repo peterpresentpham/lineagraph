@@ -1,6 +1,6 @@
 # lineagraph admin (Vite, served as static files). Build context is the monorepo root:
 #   docker build -f apps/admin/Dockerfile .
-FROM node:22.20-bookworm-slim AS base
+FROM node:26.11-bookworm-slim AS base
 WORKDIR /app
 RUN corepack enable
 
@@ -24,7 +24,7 @@ RUN pnpm --filter @lineagraph/admin build
 
 # The runtime image holds only the built files and a pinned static server, not the source tree
 # or any dev dependency. `serve` pins a vulnerable `compression`; the override installs the patched one.
-FROM node:22.20-bookworm-slim AS runner
+FROM node:26.11-bookworm-slim AS runner
 ENV NODE_ENV=production
 WORKDIR /srv
 RUN printf '%s' '{"name":"admin-host","private":true,"dependencies":{"serve":"14.2.6"},"overrides":{"compression":"^1.8.2"}}' > package.json \
