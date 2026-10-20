@@ -15,7 +15,7 @@
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "express": "^4.21.0",
-    "express-rate-limit": "^8.7.0",
+    "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "jose": "^6.2.12",
     "tsx": "^4.19.0",
@@ -28,6 +28,6 @@
     "@types/supertest": "^7.2.1",
     "supertest": "^7.3.1",
     "typescript": "^5.7.0",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   }
 }
