@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Swords } from "lucide-react";
-import { Badge } from "@lineagraph/ui";
+import { Badge, cn } from "@lineagraph/ui";
+import { toneFor } from "@/components/PolityCard";
 import type { EventSummary } from "@/lib/types";
 
 type Props = { event: EventSummary };
@@ -11,17 +12,24 @@ export function EventCard({ event }: Props) {
       ? `${event.start?.label ?? "?"}${event.end ? ` – ${event.end.label}` : ""}`
       : "Chưa rõ thời gian";
   return (
-    <Link href={`/event/${event.slug}`} className="surface-interactive group flex flex-col p-5">
-      <div className="flex items-start justify-between gap-3">
-        <span className="bg-accent text-accent-foreground grid size-10 place-items-center rounded-xl">
-          <Swords className="size-5" />
-        </span>
+    <Link
+      href={`/event/${event.slug}`}
+      className={cn(
+        "surface-interactive group relative flex min-h-44 flex-col overflow-hidden p-6",
+        toneFor(event.slug),
+      )}
+    >
+      <Swords
+        aria-hidden
+        className="text-tone absolute -bottom-5 -right-4 size-32 opacity-[0.08] transition-all duration-500 group-hover:rotate-6 group-hover:opacity-[0.15]"
+      />
+      <div className="text-tone font-serif text-3xl font-semibold leading-none">{when}</div>
+      <h3 className="text-foreground mt-4 font-serif text-xl font-semibold leading-snug">
+        {event.name}
+      </h3>
+      <div className="mt-auto flex flex-wrap items-center gap-2 pt-5">
         <Badge variant="neutral">{event.eventTypeLabel}</Badge>
-      </div>
-      <div className="text-foreground mt-4 font-serif text-xl font-semibold">{event.name}</div>
-      <div className="text-muted-foreground mt-0.5 text-sm">
-        {when}
-        {event.place ? ` · ${event.place.name}` : ""}
+        {event.place && <span className="text-muted-foreground text-sm">{event.place.name}</span>}
       </div>
     </Link>
   );

@@ -13,6 +13,7 @@ import { CiteButton } from "@/components/CiteButton";
 import { ReportLink } from "@/components/ReportLink";
 import { EntityEgoGraph } from "@/components/EntityEgoGraph";
 import { PersonCard } from "@/components/PersonCard";
+import { ReadNext } from "@/components/ReadNext";
 import { RelationCompare } from "@/components/RelationCompare";
 import { Attributes, RelationList } from "@/components/RelationList";
 import { Empty, Section } from "@/components/Section";
@@ -234,6 +235,13 @@ export default async function PersonPage({ params }: Props) {
           <CitationList citations={citations} />
         </Section>
       )}
+
+      <ReadNext
+        slug={person.slug}
+        kind="person"
+        relations={person.relations}
+        start={person.birth}
+      />
 
       <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-4 print:hidden">
         <CiteButton title={person.name} url={`${SITE_URL}/person/${person.slug}`} />

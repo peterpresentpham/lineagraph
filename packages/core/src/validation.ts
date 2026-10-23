@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "./validation-messages";
 
 // Shared by the API (request validation) and the admin forms.
 export const dateInput = z.object({

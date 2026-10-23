@@ -513,4 +513,31 @@ describe.skipIf(!url)("services against a real database", () => {
       false,
     );
   });
+
+  it("finds people of the same time, and entries that fall on a given day of the year", async () => {
+    const tag = `Zqw${Date.now()}`.toLowerCase();
+    const a = await person(`${tag} Mot`, {
+      birth: { year: 1236, month: 2, day: 29, calendar: "julian" },
+      death: { year: 1290, month: 7, day: 4 },
+    });
+    await person(`${tag} Hai`, { birth: { year: 1250 }, death: { year: 1300 } });
+    await person(`${tag} Ba`, { birth: { year: 1700 } });
+
+    const next = await core.getReadNext(a.slug);
+    const nearNames = next.contemporaries.map((r) => r.name);
+    expect(nearNames).toContain(`${tag} Hai`);
+    expect(nearNames).not.toContain(`${tag} Ba`);
+    expect(nearNames).not.toContain(`${tag} Mot`);
+
+    const born = (await core.getToday(2, 29)).find((e) => e.name === `${tag} Mot`);
+    expect(born).toMatchObject({ type: "birth", kind: "person" });
+    expect(born?.date.day).toBe(29);
+    const died = (await core.getToday(7, 4)).find((e) => e.name === `${tag} Mot`);
+    expect(died?.type).toBe("death");
+    // A date known only to the year is not "on" any day.
+    expect((await core.getToday(1, 1)).some((e) => e.name.startsWith(tag))).toBe(false);
+    await expect(core.getReadNext("khong-co-nguoi-nay-zqw")).rejects.toMatchObject({
+      status: 404,
+    });
+  });
 });

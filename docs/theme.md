@@ -50,4 +50,6 @@ Tailwind lấy mọi `p-*`, `m-*`, `gap-*`, `size-*` từ `--spacing` (1 đơn v
 
 ## Component dùng chung ở web
 
-`PageHeader` (tiêu đề trang, có chế độ `hero`), `Section`, `Monogram` (avatar chữ cái), `PersonCard`, `PolityCard`, `Logo`, `SiteHeader`, `SiteSidebar`, `SiteFooter` nằm trong `apps/web/components/`.
+`PageHeader` (tiêu đề trang, có chế độ `hero`), `Section`, `Monogram` (avatar chữ cái), `PersonCard`, `PolityCard`, `Logo`, `SiteHeader` (thanh điều hướng ngang), `SiteFooter`, `DynastyRibbon` (dải triều đại vẽ từ dữ liệu) và `LineageMotif` (hoạ tiết cây phả hệ) nằm trong `apps/web/components/`. Web công khai không còn thanh bên (`--spacing-sidebar` chỉ còn admin dùng).
+
+Ba tiện ích mới trong `packages/ui/src/theme/utilities.css` phục vụ giao diện "mực tàu": `bg-ink` (khối nền tối cho hero và chân trang, tối ở cả hai chế độ), `scheme-dark` (khai báo lại token tối cho một vùng, vì `light-dark()` trong biến tuỳ chỉnh được tính tại `:root` nên `color-scheme` ở phần tử con không đủ), và bộ `tone-brand|indigo|gold` + `tone-panel` + `text-tone` để tô màu thẻ theo một tông.

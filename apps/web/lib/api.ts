@@ -36,7 +36,16 @@ const fetchJson = cache(async (path: string, fresh: boolean): Promise<unknown> =
   if (response.status === 404) notFound();
   if (!response.ok) {
     if (lastGood.has(path)) return lastGood.get(path);
-    throw new Error(`API ${path} failed with ${response.status}`);
+    // Not shown to visitors (the error page does that); this is what shows in the server log.
+    const body = (await response.json().catch(() => null)) as {
+      code?: string;
+      error?: string;
+      requestId?: string;
+    } | null;
+    throw new Error(
+      `API ${path} failed with ${response.status}${body?.code ? ` ${body.code}` : ""}` +
+        `${body?.error ? `: ${body.error}` : ""}${body?.requestId ? ` (requestId ${body.requestId})` : ""}`,
+    );
   }
   const data = await response.json();
   remember(path, data);

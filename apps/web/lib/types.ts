@@ -214,3 +214,26 @@ export type BibliographyEntry = {
   reliability: number | null;
   citations: number;
 };
+
+export type ReadRef = {
+  kind: "person" | "polity" | "event";
+  slug: string;
+  name: string;
+  start: DateValue | null;
+  end: DateValue | null;
+  /** Office code in the shared polity (people of `samePolity` only). */
+  detail: string | null;
+};
+
+export type ReadNextData = {
+  contemporaries: ReadRef[];
+  samePolity: { polity: { slug: string; name: string }; people: ReadRef[] }[];
+};
+
+export type TodayEntry = {
+  type: "birth" | "death" | "event";
+  kind: "person" | "event";
+  slug: string;
+  name: string;
+  date: DateValue;
+};

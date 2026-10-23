@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  ServiceError,
   citationInput,
   createCitation,
   createSource,
@@ -42,8 +43,7 @@ provenanceRouter.get(
   handle(async (req, res) => {
     const { subjectTable, subjectId } = req.query;
     if (typeof subjectTable !== "string" || typeof subjectId !== "string") {
-      res.status(400).json({ error: "Thiếu subjectTable hoặc subjectId" });
-      return;
+      throw new ServiceError(400, "Thiếu subjectTable hoặc subjectId");
     }
     res.json(await listCitations(subjectTable, subjectId));
   }),

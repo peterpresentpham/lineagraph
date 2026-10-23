@@ -66,6 +66,10 @@ export const toRoman = (n: number) => {
 };
 
 /** Century 15 -> "Thế kỷ XV"; century -5 -> "Thế kỷ V TCN". */
+/** Century of a year with no year 0: years 1-100 are century 1, years -100..-1 are century -1. */
+export const centuryOf = (year: number) =>
+  year > 0 ? Math.ceil(year / 100) : -Math.ceil(Math.abs(year) / 100);
+
 export const centuryLabel = (century: number) =>
   century > 0 ? `Thế kỷ ${toRoman(century)}` : `Thế kỷ ${toRoman(-century)} TCN`;
 

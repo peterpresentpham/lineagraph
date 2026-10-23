@@ -11,6 +11,10 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Stable identifier from the API (`VALIDATION_FAILED`, `NOT_FOUND`...), for code to branch on. */
+    public code?: string,
+    /** Quote this when reporting a server error: it finds the exact line in the server log. */
+    public requestId?: string,
   ) {
     super(message);
   }
@@ -60,14 +64,24 @@ async function renewIfDue(path: string) {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   await renewIfDue(path);
   const token = tokenStore.get();
-  const response = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: {
-      ...(body !== undefined ? { "content-type": "application/json" } : {}),
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: {
+        ...(body !== undefined ? { "content-type": "application/json" } : {}),
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    // fetch only rejects when no response arrived at all: offline, server down, or blocked by CORS.
+    throw new ApiError(
+      0,
+      "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại; nếu vẫn lỗi, máy chủ có thể đang khởi động lại.",
+      "NETWORK_ERROR",
+    );
+  }
   if (response.status === 401 && path !== "/auth/login") onUnauthorized();
   if (!response.ok) {
     const data = await response.json().catch(() => null);
@@ -75,9 +89,15 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     const issues: string[] = Array.isArray(data?.issues)
       ? [...new Set<string>(data.issues.map((i: { message: string }) => i.message))]
       : [];
+    const message = issues.length > 1 ? issues.join("; ") : (data?.error ?? "Đã có lỗi xảy ra");
+    const requestId: string | undefined =
+      data?.requestId ?? response.headers.get("x-request-id") ?? undefined;
     throw new ApiError(
       response.status,
-      issues.length > 1 ? issues.join("; ") : (data?.error ?? "Đã có lỗi xảy ra"),
+      // A server fault is not something the person can fix: give them the code to report.
+      response.status >= 500 && requestId ? `${message} (mã yêu cầu: ${requestId})` : message,
+      data?.code,
+      requestId,
     );
   }
   return response.status === 204 ? (undefined as T) : response.json();

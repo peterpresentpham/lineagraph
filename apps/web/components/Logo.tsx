@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Waypoints } from "lucide-react";
 import { cn } from "@lineagraph/ui";
 
-type Props = { showName?: boolean; className?: string };
+type Props = { showName?: boolean; className?: string; onDark?: boolean };
 
 // Brand mark: gradient tile with a node-graph glyph, plus the product name.
-export function Logo({ showName = true, className }: Props) {
+export function Logo({ showName = true, className, onDark }: Props) {
   return (
     <Link
       href="/"
@@ -16,7 +16,12 @@ export function Logo({ showName = true, className }: Props) {
         <Waypoints className="size-5" />
       </span>
       {showName && (
-        <span className="text-foreground font-serif text-xl font-semibold tracking-tight">
+        <span
+          className={cn(
+            "font-serif text-xl font-semibold tracking-tight",
+            onDark ? "text-white" : "text-foreground",
+          )}
+        >
           Sử Phả
         </span>
       )}

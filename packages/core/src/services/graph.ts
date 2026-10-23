@@ -38,7 +38,7 @@ type TypeRow = {
 // Path search needs every relation, tenure and person; reading them costs several round trips, so
 // the loaded graph is kept for a short while and dropped by invalidateGraphCache() on every write.
 // Callers only read it.
-const loadGraphData = () => cached(GRAPH_CACHE_KEY, 30_000, loadGraphDataUncached);
+export const loadGraphData = () => cached(GRAPH_CACHE_KEY, 30_000, loadGraphDataUncached);
 
 async function loadGraphDataUncached() {
   const [typeRows, relationRows, tenureRows, personRows, officeLabels] = await Promise.all([
@@ -114,6 +114,22 @@ async function loadGraphDataUncached() {
   return { types, typeInfo, relations, tenures, people, offices };
 }
 
+/** How a relationship step reads from its start: "Là cha của", plus remarks (nuôi, tranh cãi...). */
+export function relationStepLabel(
+  data: Pick<Awaited<ReturnType<typeof loadGraphData>>, "types">,
+  step: Step,
+  fromSex: Sex,
+): { typeLabel: string; details: string[] } {
+  const details: string[] = [];
+  if (step.variant && variantLabels[step.variant]) details.push(variantLabels[step.variant]!);
+  if (step.label) details.push(step.label);
+  if (step.disputed) details.push("còn tranh cãi");
+  return {
+    typeLabel: sexAwareLabel(step.type, fromSex, data.types.get(step.type)?.label ?? step.type),
+    details,
+  };
+}
+
 async function resolveNode(slugOrId: string): Promise<NodeRef> {
   const isUuid = /^[0-9a-f-]{36}$/i.test(slugOrId);
   const [row] = await db.execute<{ id: string }>(
@@ -186,16 +202,15 @@ export async function findRelations(
     const fromSex = data.people.get(s.fromId)?.sex ?? "unknown";
     const details: string[] = [];
     let typeLabel: string;
+    let relationDetails: string[];
     if (s.source === "tenure") {
       const office = data.offices.get(s.variant ?? "") ?? s.variant ?? "chức vụ";
       typeLabel = s.reversed
         ? `Có ${office.toLowerCase()} là`
         : `Giữ chức ${office.toLowerCase()} tại`;
     } else {
-      typeLabel = sexAwareLabel(s.type, fromSex, data.types.get(s.type)?.label ?? s.type);
-      if (s.variant && variantLabels[s.variant]) details.push(variantLabels[s.variant]!);
-      if (s.label) details.push(s.label);
-      if (s.disputed) details.push("còn tranh cãi");
+      ({ typeLabel, details: relationDetails } = relationStepLabel(data, s, fromSex));
+      details.push(...relationDetails);
     }
     return { from, to, type: s.type, typeLabel, details, source: s.source, disputed: s.disputed };
   };

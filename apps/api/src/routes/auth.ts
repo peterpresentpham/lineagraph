@@ -1,9 +1,10 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { findAdminByEmail, getAdminSession, revokeAdminSessions } from "@lineagraph/core";
-import { handle } from "../http.js";
+import { handle, sendError } from "../http.js";
+import { tooManyRequests } from "../middleware/limits.js";
 import { log } from "../logger.js";
 import { TOKEN_TTL_SECONDS, requireAdmin, signAdminToken } from "../middleware/auth.js";
 
@@ -13,12 +14,17 @@ const loginInput = z.object({
 });
 
 // Same message for unknown email and wrong password, so the response never reveals which emails exist.
-const badCredentials = { error: "Email hoặc mật khẩu không đúng" };
+const badCredentials = (res: Response) =>
+  sendError(res, 401, "Email hoặc mật khẩu không đúng", { code: "INVALID_CREDENTIALS" });
 // Compared against when the email is unknown, so timing does not reveal it either.
 const dummyHash = bcrypt.hashSync("dummy-password", 12);
 
-const tooManyAttempts = { error: "Thử đăng nhập quá nhiều lần, vui lòng đợi 15 phút" };
+const tooManyAttempts = tooManyRequests("Thử đăng nhập quá nhiều lần, vui lòng đợi 15 phút");
 const WINDOW_MS = 15 * 60 * 1000;
+
+// Only a rejected login (401) counts against the limits: a server fault (500) or a malformed
+// request is not a guess, and must not lock the real admin out while the fault is being fixed.
+const wasNotRejected = (_req: unknown, res: { statusCode: number }) => res.statusCode !== 401;
 
 /**
  * Login attempts are limited twice: per client address, and per account. The second stops a
@@ -35,7 +41,8 @@ export function createAuthRouter(limits: { perIp?: number; perEmail?: number } =
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true,
-    message: tooManyAttempts,
+    requestWasSuccessful: wasNotRejected,
+    handler: tooManyAttempts,
   });
   const byEmail = rateLimit({
     windowMs: WINDOW_MS,
@@ -43,7 +50,8 @@ export function createAuthRouter(limits: { perIp?: number; perEmail?: number } =
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: true,
-    message: tooManyAttempts,
+    requestWasSuccessful: wasNotRejected,
+    handler: tooManyAttempts,
     // A malformed body falls back to one shared key, so it cannot be used to dodge the limit.
     keyGenerator: (req) =>
       typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "no-email",
@@ -60,7 +68,7 @@ export function createAuthRouter(limits: { perIp?: number; perEmail?: number } =
       const ok = await bcrypt.compare(password, account?.passwordHash ?? dummyHash);
       if (!account || !ok) {
         log("warn", "failed login", { reqId: res.locals.reqId, ip: req.ip });
-        res.status(401).json(badCredentials);
+        badCredentials(res);
         return;
       }
       res.json({

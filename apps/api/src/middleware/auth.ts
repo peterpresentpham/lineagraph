@@ -1,6 +1,7 @@
+import { getAdminSession } from "@lineagraph/core";
 import type { NextFunction, Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
-import { getAdminSession } from "@lineagraph/core";
+import { sendError } from "../http.js";
 
 const secretValue = process.env.JWT_SECRET;
 if (!secretValue) throw new Error("JWT_SECRET is not set");
@@ -27,7 +28,7 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   // Responses to unauthenticated requests must never be reused from a cache.
   res.setHeader("Cache-Control", "no-store");
   if (!token) {
-    res.status(401).json({ error: "Cần đăng nhập" });
+    sendError(res, 401, "Cần đăng nhập để thực hiện thao tác này", { code: "LOGIN_REQUIRED" });
     return;
   }
   try {
@@ -39,7 +40,17 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     }
     res.locals.admin = { id: payload.sub, email: payload.email };
     next();
-  } catch {
-    res.status(401).json({ error: "Phiên đăng nhập đã hết hạn" });
+  } catch (err) {
+    // An expired token is the everyday case; anything else (bad signature, account gone, token
+    // revoked by a logout elsewhere) needs a fresh login just the same.
+    const expired = (err as { code?: string })?.code === "ERR_JWT_EXPIRED";
+    sendError(
+      res,
+      401,
+      expired
+        ? "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại"
+        : "Phiên đăng nhập không còn hiệu lực, vui lòng đăng nhập lại",
+      { code: expired ? "SESSION_EXPIRED" : "SESSION_INVALID" },
+    );
   }
 }

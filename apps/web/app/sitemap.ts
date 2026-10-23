@@ -33,6 +33,8 @@ const staticRoutes: { path: string; priority: number; changeFrequency: "weekly" 
   { path: "/polities", priority: 0.7, changeFrequency: "weekly" },
   { path: "/events", priority: 0.7, changeFrequency: "weekly" },
   { path: "/timeline", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/thu-thach", priority: 0.6, changeFrequency: "weekly" },
+  { path: "/hom-nay", priority: 0.6, changeFrequency: "weekly" },
   { path: "/gioi-thieu", priority: 0.5, changeFrequency: "monthly" },
   { path: "/nguon", priority: 0.5, changeFrequency: "weekly" },
   { path: "/bao-loi", priority: 0.3, changeFrequency: "monthly" },

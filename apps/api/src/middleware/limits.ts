@@ -1,6 +1,18 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { type Options } from "express-rate-limit";
+import { sendError } from "../http.js";
 
-const tooMany = { error: "Quá nhiều yêu cầu, vui lòng thử lại sau" };
+/** The standard 429: says how long to wait, so a client can back off instead of guessing. */
+export const tooManyRequests =
+  (message: string): Options["handler"] =>
+  (req, res) => {
+    const resetTime = (req as { rateLimit?: { resetTime?: Date } }).rateLimit?.resetTime;
+    const retryAfterSeconds = resetTime
+      ? Math.max(1, Math.ceil((resetTime.getTime() - Date.now()) / 1000))
+      : undefined;
+    sendError(res, 429, message, { code: "RATE_LIMITED", retryAfterSeconds });
+  };
+
+const tooMany = tooManyRequests("Bạn gửi quá nhiều yêu cầu, vui lòng đợi một chút rồi thử lại");
 
 /** Ceiling for every route; the heavier public routes also get {@link heavyLimiter}. */
 export const globalLimiter = () =>
@@ -10,7 +22,7 @@ export const globalLimiter = () =>
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => req.path === "/health" || req.path === "/health/live",
-    message: tooMany,
+    handler: tooMany,
   });
 
 /**
@@ -23,5 +35,5 @@ export const heavyLimiter = (limit = 60) =>
     limit,
     standardHeaders: true,
     legacyHeaders: false,
-    message: tooMany,
+    handler: tooMany,
   });

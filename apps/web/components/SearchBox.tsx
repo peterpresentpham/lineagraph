@@ -92,7 +92,7 @@ export function SearchBox() {
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
           onKeyDown={onKeyDown}
-          placeholder="Tìm nhân vật, triều đại, sự kiện, năm..."
+          placeholder="Tìm nhân vật, triều đại, năm..."
           className="border-input bg-muted/60 placeholder:text-muted-foreground focus:border-ring focus:bg-background focus:ring-ring/25 h-10 w-full rounded-xl border pl-9 pr-3 text-sm outline-none transition focus:ring-4"
         />
       </label>
@@ -102,7 +102,7 @@ export function SearchBox() {
           role="listbox"
           aria-label="Gợi ý"
           onMouseDown={(e) => e.preventDefault()}
-          className="bg-popover absolute z-40 mt-1.5 w-full overflow-hidden rounded-xl border shadow-lg"
+          className="bg-popover absolute right-0 z-40 mt-1.5 w-full min-w-72 overflow-hidden rounded-xl border shadow-lg"
         >
           {shown.map((r, i) => (
             <li

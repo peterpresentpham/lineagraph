@@ -130,3 +130,20 @@ Admin đi trước user trong lộ trình vì không có dữ liệu đã duyệ
 - **Thuật toán:** `packages/core/src/relations/egograph.ts` duyệt theo từng lớp (BFS) từ nút trung tâm, mỗi lớp cắt theo giới hạn số nút; khi phải cắt thì giữ trước các liên kết huyết thống (`family`), rồi chính trị (`politics`), rồi các loại khác. `countHidden` đếm số hàng xóm chưa hiện của từng nút. Truy vấn theo từng lớp qua chỉ mục `(from_id, type)` / `(to_id, type)`, không đọc cả bảng. Chức vụ (`history.tenure`) được tính như một cạnh loại `tenure` nên sơ đồ của một chính thể có các vua.
 - **Thành phần dùng chung:** `packages/ui/src/graph` (`EgoGraph`, `RelationGraph`), import từ `@lineagraph/ui/graph`. Mỗi app truyền `renderLink` của router riêng (Next `Link` hoặc react-router `Link`).
 - **Admin:** tab "Sơ đồ" trong trang nhân vật và chính thể. Bấm vào đường nối để sửa quan hệ; kéo từ chấm dưới của một ô sang chấm trên của ô khác để thêm quan hệ (form mở sẵn hai đầu). Đường chức vụ sửa ở tab "Chức vụ".
+
+## Thử thách nối hai người (`/thu-thach`)
+
+Trò chơi công khai, không cần đăng nhập. Người chơi xuất phát từ một nhân vật và đi qua từng người thân (cha mẹ, con, vợ chồng, người kế vị) cho tới khi gặp nhân vật đích; càng ít bước càng được nhiều sao.
+
+- Đồ thị chỉ gồm quan hệ **người – người, không tranh cãi** (tránh việc một triều đại nối mọi vị vua chỉ trong hai bước). Cặp đề được chọn cách nhau 3–6 bước, ưu tiên 4.
+- `GET /challenge/daily`: cặp của ngày (giờ Việt Nam, UTC+7), sinh từ hạt giống `daily-yyyy-mm-dd` nên mọi người cùng một đề. `GET /challenge/random`: cặp ngẫu nhiên, không cache.
+- `GET /challenge/neighbors/:slug`: những người có thể đi tiếp. `GET /challenge/route?from=&to=`: đường ngắn nhất (bước đầu là gợi ý, cả đường là đáp án).
+- Trình duyệt chỉ lưu kết quả ngày và chuỗi ngày liên tiếp trong `localStorage`; không có tài khoản hay bảng xếp hạng.
+- Dịch vụ: `packages/core/src/services/challenge.ts`; giao diện: `components/ChallengeGame.tsx`, `lib/challenge.ts`.
+
+## Đọc tiếp và Hôm nay trong lịch sử
+
+Cả hai chỉ dùng dữ liệu sẵn có, không thêm bảng.
+
+- **Đọc tiếp** (cuối trang nhân vật, chính thể, sự kiện): `GET /nodes/:slug/read-next` trả về `contemporaries` (nhân vật, sự kiện, chính thể có thời gian trùng với đối tượng, gần nhất trước; trang chính thể không đề xuất nhân vật vì trang đó đã liệt kê sẵn) và `samePolity` (những người giữ chức trong cùng chính thể, gần thời điểm nhân vật nắm chức nhất; chỉ cho nhân vật, tối đa 2 chính thể × 8 người). Một người không xuất hiện ở cả hai nhóm. Người trước/sau lấy từ chính danh sách quan hệ của trang (`successor_of`, `predecessor_of`, `succeeds`, `succeeded_by`); kèm liên kết "Xem sơ đồ gia tộc" và thế kỷ trên dòng thời gian. Người chưa có ngày sinh thì không có mục "cùng thời". Khoảng sống thiếu ngày mất được ước tính 70 năm (chính thể thiếu ngày kết thúc: 100 năm).
+- **Hôm nay trong lịch sử** (`/hom-nay`, mục ở trang chủ): `GET /today?month=&day=` (mặc định là hôm nay theo giờ Việt Nam). Chỉ tính ngày sinh, ngày mất ưu tiên và ngày bắt đầu sự kiện **đã biết đến ngày** và không phải ngày ước chừng (`~`). Ngày, tháng là số liệu theo lịch gốc của nguồn (Julius hay Gregorius, trang ghi rõ "lịch Julius"), đúng như sách sử vẫn trích. Muốn có nhiều mục, hãy nhập ngày đầy đủ khi tạo nhân vật và sự kiện trong admin.

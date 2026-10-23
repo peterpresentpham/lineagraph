@@ -9,3 +9,39 @@
     color: #000 !important;
   }
 }
+
+/* Hero ornament: the tree draws itself once, and its nodes breathe slowly. */
+@keyframes motif-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes motif-breathe {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.motif-branch {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: motif-draw 2.4s var(--ease-smooth) 0.2s forwards;
+}
+.motif-node {
+  animation: motif-breathe 5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .motif-branch {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .motif-node {
+    animation: none;
+  }
+}

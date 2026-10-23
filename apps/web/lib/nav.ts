@@ -1,4 +1,4 @@
-import { History, Landmark, Network, Route, Swords, Users } from "lucide-react";
+import { History, Landmark, Network, Route, Swords, Trophy, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export type NavItem = {
@@ -16,6 +16,7 @@ export const nav: NavItem[] = [
   { href: "/graph", label: "Sơ đồ", icon: Network },
   { href: "/relations", label: "Tìm quan hệ", icon: Route },
   { href: "/timeline", label: "Dòng thời gian", icon: History },
+  { href: "/thu-thach", label: "Thử thách", icon: Trophy },
 ];
 
 /** Whether the current path is inside this nav section, detail pages included. */

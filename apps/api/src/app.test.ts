@@ -194,7 +194,11 @@ describe.skipIf(!url)("api", () => {
         .send({ email: "nobody@example.com", password: "whatever" });
       const wrong = await login(app, "nope");
       expect(unknown.status).toBe(wrong.status);
-      expect(unknown.body).toEqual(wrong.body);
+      // Everything but the per-request id must match, or the response would reveal which emails exist.
+      const { requestId: _a, ...unknownBody } = unknown.body;
+      const { requestId: _b, ...wrongBody } = wrong.body;
+      expect(unknownBody).toEqual(wrongBody);
+      expect(unknownBody.code).toBe("INVALID_CREDENTIALS");
     });
 
     it("stops guessing one account from many addresses", async () => {

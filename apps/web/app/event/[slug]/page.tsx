@@ -7,6 +7,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbData, isoDate } from "@/lib/structuredData";
 import { PageHeader } from "@/components/PageHeader";
 import { CiteButton } from "@/components/CiteButton";
+import { ReadNext } from "@/components/ReadNext";
 import { ReportLink } from "@/components/ReportLink";
 import { Section } from "@/components/Section";
 import { SITE_URL } from "@/lib/site";
@@ -152,6 +153,8 @@ export default async function EventPage({ params }: Props) {
           <CitationList citations={citations} />
         </Section>
       )}
+
+      <ReadNext slug={event.slug} kind="event" start={event.start} />
 
       <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-4 print:hidden">
         <CiteButton title={event.name} url={`${SITE_URL}/event/${event.slug}`} />

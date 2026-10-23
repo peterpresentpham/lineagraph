@@ -9,6 +9,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbData, isoDate } from "@/lib/structuredData";
 import { PageHeader } from "@/components/PageHeader";
 import { CiteButton } from "@/components/CiteButton";
+import { ReadNext } from "@/components/ReadNext";
 import { ReportLink } from "@/components/ReportLink";
 import { Empty, Section } from "@/components/Section";
 import { SITE_URL } from "@/lib/site";
@@ -170,6 +171,13 @@ export default async function PolityPage({ params }: Props) {
           <CitationList citations={citations} />
         </Section>
       )}
+
+      <ReadNext
+        slug={polity.slug}
+        kind="polity"
+        relations={polity.relations}
+        start={polity.started}
+      />
 
       <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2 border-t pt-4 print:hidden">
         <CiteButton title={polity.name} url={`${SITE_URL}/polity/${polity.slug}`} />

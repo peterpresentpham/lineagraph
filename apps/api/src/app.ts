@@ -3,7 +3,9 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import type { Config } from "./config.js";
-import { errorHandler, publicCache } from "./http.js";
+import { challengeRouter } from "./routes/challenge.js";
+import { discoverRouter } from "./routes/discover.js";
+import { errorHandler, publicCache, routeNotFound } from "./http.js";
 import { requestLogger } from "./logger.js";
 import { auditWrites } from "./middleware/audit.js";
 import { globalLimiter, heavyLimiter } from "./middleware/limits.js";
@@ -63,7 +65,11 @@ export function createApp(config: Config, options: AppOptions = {}) {
       await checkDatabase();
       res.json({ ok: true });
     } catch {
-      res.status(503).json({ ok: false, error: "database unavailable" });
+      res.status(503).json({
+        ok: false,
+        code: "DATABASE_UNAVAILABLE",
+        error: "Không kết nối được cơ sở dữ liệu",
+      });
     }
   });
 
@@ -90,6 +96,8 @@ export function createApp(config: Config, options: AppOptions = {}) {
       "/relation-types",
       "/timeline",
       "/search",
+      "/challenge",
+      "/today",
       "/persons",
       "/polities",
       "/places",
@@ -100,13 +108,24 @@ export function createApp(config: Config, options: AppOptions = {}) {
   );
   // The public routes that cost the database real work get their own, stricter limit.
   app.use(
-    ["/search", "/random", "/relations", "/graph/expand", "/nodes", "/timeline"],
+    [
+      "/search",
+      "/random",
+      "/challenge",
+      "/today",
+      "/relations",
+      "/graph/expand",
+      "/nodes",
+      "/timeline",
+    ],
     heavyLimiter(options.heavyLimit),
   );
 
   // Public reads first, so admin-guarded routers below never shadow them.
   app.use(graphRouter);
   app.use(searchRouter);
+  app.use(challengeRouter);
+  app.use(discoverRouter);
   app.use(timelineRouter);
   app.use(registryRouter);
   app.use(placesRouter);
@@ -117,6 +136,7 @@ export function createApp(config: Config, options: AppOptions = {}) {
   app.use(opsRouter);
   app.use(relationsRouter);
 
+  app.use(routeNotFound);
   app.use(errorHandler);
   return app;
 }

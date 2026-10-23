@@ -1,6 +1,5 @@
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { SiteSidebar } from "@/components/SiteSidebar";
 import { SITE_URL } from "@/lib/site";
 import { themeInitScript } from "@lineagraph/ui";
 import type { Metadata, Viewport } from "next";
@@ -53,15 +52,12 @@ export default function RootLayout({ children }: Props) {
           className="bg-brand-gradient fixed inset-x-0 top-0 z-50 h-0.5 print:hidden"
           aria-hidden
         />
-        <div className="flex min-h-screen flex-col md:flex-row">
-          <SiteSidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <SiteHeader />
-            <main id="main" className="container-page flex-1 py-8 md:py-10">
-              {children}
-            </main>
-            <SiteFooter />
-          </div>
+        <div className="flex min-h-screen flex-col">
+          <SiteHeader />
+          <main id="main" className="container-page flex-1 py-8 md:py-12">
+            {children}
+          </main>
+          <SiteFooter />
         </div>
       </body>
     </html>

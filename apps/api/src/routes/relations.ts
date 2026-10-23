@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  ServiceError,
   createRelationType,
   createRelationship,
   deleteRelationType,
@@ -29,8 +30,7 @@ relationsRouter.get(
     const a = textQuery(req.query.a, "a");
     const b = textQuery(req.query.b, "b");
     if (!a || !b) {
-      res.status(400).json({ error: "Cần chọn hai đối tượng (a và b)" });
-      return;
+      throw new ServiceError(400, "Cần chọn hai đối tượng (a và b)");
     }
     res.json(
       await findRelations(a, b, {

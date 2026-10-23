@@ -91,3 +91,85 @@
   );
   background-size: 18px 18px;
 }
+
+/* Deep "ink" panel for heroes and the footer: blue-black with a faint indigo and gold glow. It is
+   dark in both colour schemes on purpose, so the page always has one strong, high-contrast anchor. */
+@utility bg-ink {
+  color: var(--color-night-50);
+  /* A hairline keeps the panel readable against the near-black page of the dark scheme. */
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, white 10%, transparent);
+  background-color: var(--color-night-950);
+  background-image:
+    radial-gradient(
+      55% 70% at 85% 0%,
+      color-mix(in oklab, var(--color-indigo-500) 38%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      45% 60% at 5% 105%,
+      color-mix(in oklab, var(--color-brand-600) 30%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      35% 45% at 60% 120%,
+      color-mix(in oklab, var(--color-gold-500) 22%, transparent),
+      transparent 70%
+    );
+}
+
+/* Gold gradient text for use on `bg-ink`. */
+@utility text-gold {
+  background-image: linear-gradient(100deg, var(--color-gold-300), var(--color-brand-300));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* A hairline in gold that fades out: separates blocks without a heavy border. */
+@utility rule-gold {
+  height: 1px;
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-gold-500) 70%, transparent),
+    transparent
+  );
+}
+
+/* Colour "tones" for cards: set --tone on an element, then tint its background or text with it.
+   The tone follows the theme (light-dark), so a tinted panel stays readable in both. */
+@utility tone-brand {
+  --tone: var(--primary);
+}
+@utility tone-indigo {
+  --tone: var(--info);
+}
+@utility tone-gold {
+  /* Darker than --highlight in the light scheme: small gold text on a tint must reach 4.5:1. */
+  --tone: light-dark(var(--color-gold-700), var(--color-gold-400));
+}
+@utility tone-panel {
+  background-color: color-mix(in oklab, var(--tone) 12%, var(--card));
+}
+@utility text-tone {
+  color: var(--tone);
+}
+
+/* Re-declares the semantic tokens with their dark values for one subtree. `light-dark()` inside a
+   custom property is resolved where the property is declared (on :root), so setting
+   `color-scheme` on a descendant is not enough: a dark panel inside a light page (the hero) must
+   carry these values itself. Keep in step with the dark halves in semantic.css. */
+@utility scheme-dark {
+  color-scheme: dark;
+  --foreground: var(--color-night-50);
+  --card: var(--color-night-900);
+  --muted: var(--color-night-850);
+  --muted-foreground: var(--color-night-400);
+  --border: var(--color-night-700);
+  --primary: var(--color-brand-400);
+  --accent: oklch(0.27 0.045 30);
+  --accent-foreground: var(--color-brand-100);
+  --highlight: var(--color-gold-400);
+  --success: oklch(0.78 0.15 150);
+  --warning: oklch(0.82 0.15 85);
+  --info: var(--color-indigo-300);
+}
